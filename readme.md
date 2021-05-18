@@ -1,0 +1,12 @@
+Requires:
+- numpy
+- pandas
+- scipy
+- sklearn
+- pywavelets
+- matplotlib
+- mne
+- braindecode
+- pytest
+- autosklearn
+- joblib
