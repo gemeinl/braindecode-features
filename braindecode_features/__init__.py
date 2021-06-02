@@ -79,13 +79,6 @@ def extract_time_features(windows_ds, frequency_bands, fu):
                              if ch.endswith('-'.join([str(b) for b in frequency_band]))]
             # get the band data
             data = ds.windows.get_data(picks=band_channels)    
-            # TODO: in time domain, filter to frequency band here?
-            #data = mne.filter.filter_data(
-            #    data=data.
-            #    sfreq=ds.windows.info['sfreq'],
-            #    l_freq=frequency_band[0],
-            #    h_freq=frequency_band[1],
-            #)
             # call all features in the union
             f.append(fu.fit_transform(data).astype(np.float32))
             # first, remove frequency info from channel names, then generate feature names
@@ -114,6 +107,8 @@ def extract_time_features(windows_ds, frequency_bands, fu):
     series.name = 'i_trial'
     time_df = pd.concat([series, time_df], axis=1)
     assert not pd.isna(time_df.values).any()
+    assert not pd.isnull(time_df.values).any()
+    assert np.abs(time_df.values).max() < np.inf
     return time_df
 
 
@@ -159,6 +154,8 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
     series.name = 'i_trial'
     connectivity_df = pd.concat([series, connectivity_df], axis=1)
     assert not pd.isna(connectivity_df.values).any()
+    assert not pd.isnull(connectivity_df.values).any()
+    assert np.abs(connectivity_df.values).max() < np.inf
     return connectivity_df
 
 
@@ -219,6 +216,8 @@ def extract_ft_features(windows_ds, frequency_bands, fu):
     series.name = 'i_trial'
     dft_df = pd.concat([series, dft_df], axis=1)
     assert not pd.isna(dft_df.values).any()
+    assert not pd.isnull(dft_df.values).any()
+    assert np.abs(dft_df.values).max() < np.inf
     return dft_df
 
 
@@ -283,6 +282,8 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu):
     series.name = 'i_trial'
     cwt_df = pd.concat([series, cwt_df], axis=1)
     assert not pd.isna(cwt_df.values).any()
+    assert not pd.isnull(cwt_df.values).any()
+    assert np.abs(cwt_df.values).max() < np.inf
     return cwt_df
 
 
@@ -335,6 +336,8 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
     series.name = 'i_trial'
     cross_frequency_df = pd.concat([series, cross_frequency_df], axis=1)
     assert not pd.isna(cross_frequency_df.values).any()
+    assert not pd.isnull(cross_frequency_df.values).any()
+    assert np.abs(cross_frequency_df.values).max() < np.inf
     return cross_frequency_df
 
 
@@ -551,7 +554,7 @@ def finalize_df(dfs):
         on=['i_trial', 'i_window_in_trial', 'target']
     )
     df = df.rename(
-        mapper={'i_trial': 'Trial', 
+        mapper={'i_trial': 'Dataset', 
                 'i_window_in_trial': 'Window', 
                 'target': 'Target',
                }, axis=1)
@@ -589,7 +592,7 @@ def save_features_by_trial(df, out_path, subject_id, split_name):
     out_p = os.path.join(out_path, str(subject_id), split_name)
     if not os.path.exists(out_p):
         os.makedirs(out_p)
-    trial_col = _find_col(df.columns, 'Trial')
+    trial_col = _find_col(df.columns, 'Dataset')
     for trial, feats in df.groupby(trial_col):
         # store as hdf files, since reading is much faster than csv
         feats.reset_index(inplace=True, drop=True)
@@ -598,7 +601,7 @@ def save_features_by_trial(df, out_path, subject_id, split_name):
         
 def filter_df(df, query, exact_match=False, level_to_consider=None):
     """Filter the MultiIndex of a DataFrame wrt 'query'. Thereby, columns required
-    for decoding, i.e., 'Target', 'Trial', 'Window' are always preserved.
+    for decoding, i.e., 'Target', 'Dataset', 'Window' are always preserved.
 
     Parameters
     ----------
@@ -627,7 +630,7 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
         levels = [level_to_consider]
     # if available add target, trial and window to selection 
     info_cols = []
-    for info_col in ['Target', 'Trial', 'Window']:
+    for info_col in ['Dataset', 'Window', 'Target']:
         if info_col in df:
             info_col = _find_col(df.columns, info_col)
             info_cols.append(info_col)
@@ -654,7 +657,7 @@ def _examples_from_windows(df):
     if not isinstance(df.columns, pd.MultiIndex):
         df.columns = json_to_multiindex(df.columns)
     target_col = _find_col(df.columns, 'Target')
-    trial_col = _find_col(df.columns, 'Trial')
+    trial_col = _find_col(df.columns, 'Dataset')
     window_col = _find_col(df.columns, 'Window')
     new_df = []
     for group_i, ((_, window_i), g) in enumerate(
@@ -722,7 +725,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     """
     if not isinstance(df.columns, pd.MultiIndex):
         df.columns = json_to_multiindex(df.columns)
-    trial_col = _find_col(df.columns, 'Trial')
+    trial_col = _find_col(df.columns, 'Dataset')
     target_col = _find_col(df.columns, 'Target')
     window_col = _find_col(df.columns, 'Window')
     if agg_func is not None:
@@ -735,7 +738,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     else:
         if not windows_as_examples:
             df = _examples_from_windows(df)
-    # for data and feature names, ignore first 3 columns (Target, Trial, Window)
+    # for data and feature names, ignore first 3 columns (Target, Dataset, Window)
     X = df[df.columns[3:]].to_numpy()
     y = df[target_col].to_numpy()
     groups = df[trial_col].to_numpy()
@@ -746,7 +749,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
 
 
 def _aggregate_windows(df, agg_func):
-    trial_col = _find_col(df.columns, 'Trial')
+    trial_col = _find_col(df.columns, 'Dataset')
     grouped = df.groupby(trial_col)
     df = grouped.agg(agg_func)
     df.reset_index(inplace=True)
@@ -754,7 +757,7 @@ def _aggregate_windows(df, agg_func):
     # keep it at this point for compatibility
     df[_find_col(df.columns, 'Window')] = len(df) * [0]
     # agg changes dtype of target, force it to keep original dtype
-    cols = [_find_col(df, col) for col in ['Trial', 'Target', 'Window']]
+    cols = [_find_col(df, col) for col in ['Dataset', 'Target', 'Window']]
     df[cols] = df[cols].astype(np.int64)
     return df
 
@@ -814,12 +817,19 @@ def _build_transformer_list(funcs):
     return transformer_list
 
 
-def extract_windows_ds_features(windows_ds, frequency_bands, n_jobs=1):
+def extract_windows_ds_features(
+    windows_ds, frequency_bands, feature_functions=None, 
+    extraction_routines=None, n_jobs=1):
     """Extrac features from a braindecode WindowsDataset."""
-    feature_functions, extraction_routines = get_feature_functions_and_extraction_routines()
+    assert (extraction_routines is None and feature_functions is None) or (
+        extraction_routines is not None and feature_functions is not None)
+    if extraction_routines is None and feature_functions is None:
+        feature_functions, extraction_routines = get_feature_functions_and_extraction_routines()
     domain_dfs = {}
     # extract features by domain, since each domain has it's very own routine
     for domain in extraction_routines.keys():
+        if len(frequency_bands) == 1 and domain == 'Cross-frequency':
+            continue
         print(domain)
         transformer_list = _build_transformer_list(feature_functions[domain])
 
@@ -843,7 +853,7 @@ def extract_windows_ds_features(windows_ds, frequency_bands, n_jobs=1):
 
 
 def drop_window(df, window_i):
-    """Drop all entries rows of window i in the feature DataFrame.
+    """Drop all rows of window_i in the feature DataFrame.
     
     Parameters
     ----------
@@ -852,8 +862,14 @@ def drop_window(df, window_i):
     window_i: int
         The id of the window to be dropped.
     """
+    # select all windows that are not window_i
     df = df[df.Window != window_i]
-    df.loc[:, 'Window'] = df.loc[:, 'Window'].subtract(df.Window > window_i)
+    windows = df.pop('Window')
+    # TODO: is it OK to do this?
+    # reindex the windows
+    windows -= windows.values > window_i
+    # insert the updated windows again
+    df.insert(1, 'Window', windows)
     return df
 
 
@@ -876,6 +892,15 @@ def trial_accuracy(y, y_pred, y_groups):
 def cross_validate(
     df, clf, subject_id, only_last_fold, agg_func, windows_as_examples, 
     out_path=None):
+    invalid_cols = [
+        (col, ty) for col, ty in df.dtypes.items() if ty not in ['float32', 'int64']]
+    if invalid_cols:
+        print(f'Only integer and float values are allowed to exist in the DataFrame. '
+              f'Found {invalid_cols}. Please convert.')
+        return
+    assert not pd.isna(df).values.any(), 'Found NaN in DataFrame.'
+    assert not pd.isnull(df.values.any()), 'Found null in DataFrame.'
+    assert df.isin(df.values).values.all(), 'Found inf in DataFrame.'
     results = pd.DataFrame()
     n_splits = 5
     X, y, groups, feature_names = prepare_features(
