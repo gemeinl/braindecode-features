@@ -35,9 +35,11 @@ class MyFunctionTransformer(FunctionTransformer):
         return [f'ch{i}-ch{j}' for i, j in zip(*np.triu_indices(chs_in, k=int(not include_diag)))]
 
     def transform(self, X):
+        # print(X.shape)  # crashes but does not print ?!?!
         # TODO: this is not nice. DFT features get a tuple of transform and frequency bins
         # could probably remove the bins. could then use argmax of amplitudes instead of 
         # bins at the position of argmax amplitudes for peak frequency
+        # TODO: also, cross-frequency features get a tuple of twice the amount of data
         n_dim_in = X.ndim if not isinstance(X, tuple) else X[0].ndim
         self.chs_in_ = X.shape[-2] if not isinstance(X, tuple) else X[0].shape[-2]
         X = super().transform(X=X)
@@ -99,7 +101,7 @@ def extract_time_features(windows_ds, frequency_bands, fu):
         name annotations.
     """
     time_df = []
-    for ds in windows_ds.datasets:
+    for ds_i, ds in enumerate(windows_ds.datasets):
         # for time domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]    
         f, feature_names = [], []
@@ -124,6 +126,8 @@ def extract_time_features(windows_ds, frequency_bands, fu):
         feature_names = ['__'.join(['Time', name]) for name in feature_names]
         time_df.append(
             pd.concat([
+                # add dataset_id to be able to backtrack
+                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
                 # add trial and target info to features
                 ds.windows.metadata[['i_window_in_trial', 'target']], 
                 # create a dataframe of feature values and feature names
@@ -163,7 +167,7 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
         name annotations.
     """
     connectivity_df = []
-    for ds in windows_ds.datasets:
+    for ds_i, ds in enumerate(windows_ds.datasets):
         # for connectivity domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]
         f, feature_names = [], []
@@ -188,6 +192,8 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
         feature_names = ['__'.join(['Connectivity', name]) for name in feature_names]
         connectivity_df.append(
             pd.concat([
+                # add dataset_id to be able to backtrack
+                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
                 # add trial and target info to features
                 ds.windows.metadata[['i_window_in_trial', 'target']], 
                 # create a dataframe of feature values and feature names
@@ -236,7 +242,7 @@ def extract_ft_features(windows_ds, frequency_bands, fu):
         name annotations.
     """
     dft_df = []
-    for ds in windows_ds.datasets:
+    for ds_i, ds in enumerate(windows_ds.datasets):
         sfreq = ds.windows.info['sfreq']
         # for dft features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)
@@ -252,7 +258,8 @@ def extract_ft_features(windows_ds, frequency_bands, fu):
             l_id = np.argmin(np.abs(bins-l_freq))
             h_id = np.argmin(np.abs(bins-h_freq))
             # get the data and the bins
-            data = (transform[:,:,l_id:h_id+1], bins[l_id:h_id+1])
+            #data = (transform[:,:,l_id:h_id+1], bins[l_id:h_id+1])
+            data = transform[:,:,l_id:h_id+1]
             # call all features in the union 
             f.append(fu.fit_transform(data).astype(np.float32))
             # first, manually add the frequency band to the used channel names
@@ -266,6 +273,8 @@ def extract_ft_features(windows_ds, frequency_bands, fu):
         feature_names = ['__'.join(['DFT', name]) for name in feature_names]
         dft_df.append(
             pd.concat([
+                # add dataset_id to be able to backtrack
+                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
                 # add trial and target info to features
                 ds.windows.metadata[['i_window_in_trial', 'target']], 
                 # create a dataframe of feature values and feature names
@@ -319,7 +328,7 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu):
     central_band = False
     step_width = 1
     cwt_df = []
-    for ds in windows_ds.datasets:
+    for ds_i, ds in enumerate(windows_ds.datasets):
         sfreq = ds.windows.info['sfreq']
         # for cwt features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)
@@ -349,6 +358,8 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu):
         feature_names = ['__'.join(['CWT', name]) for name in feature_names]
         cwt_df.append(
             pd.concat([
+                # add dataset_id to be able to backtrack
+                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
                 # add trial and target info to features
                 ds.windows.metadata[['i_window_in_trial', 'target']], 
                 # create a dataframe of feature values and feature names
@@ -393,7 +404,7 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
                           for band_i in range(len(frequency_bands)) 
                           for band_j in range(band_i+1, len(frequency_bands))]
     cross_frequency_df = []
-    for ds in windows_ds.datasets:
+    for ds_i, ds in enumerate(windows_ds.datasets):
         # get names of unfiltered channels
         sensors = _get_unfiltered_chs(ds, frequency_bands)
         f, feature_names = [], []
@@ -419,6 +430,8 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
         feature_names = ['__'.join(['Cross-frequency', name]) for name in feature_names]
         cross_frequency_df.append(
             pd.concat([
+                # add dataset_id to be able to backtrack
+                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
                 # add trial and target info to features
                 ds.windows.metadata[['i_window_in_trial', 'target']], 
                 # create a dataframe of feature values and feature names
@@ -544,21 +557,18 @@ def get_connectivity_feature_functions():
 def get_ft_feature_functions():
     # DFT
     # TODO: add spectral entropy?
-    # TODO: remove freq bins from input tuple?
-    def maximum(transform_n_bins): return np.max(np.abs(transform_n_bins[0]), axis=-1)
-    def mean(transform_n_bins): return np.mean(np.abs(transform_n_bins[0]), axis=-1)
-    def median(transform_n_bins): return np.median(np.abs(transform_n_bins[0]), axis=-1)
-    def minimum(transform_n_bins): return np.min(np.abs(transform_n_bins[0]), axis=-1)
-    def peak_frequency(transform_n_bins):
-        transform, bins = transform_n_bins
+    def maximum(transform): return np.max(np.abs(transform), axis=-1)
+    def mean(transform): return np.mean(np.abs(transform), axis=-1)
+    def median(transform): return np.median(np.abs(transform), axis=-1)
+    def minimum(transform): return np.min(np.abs(transform), axis=-1)
+    def peak_frequency(transform):
         amplitudes = np.abs(transform)
-        return bins[np.argmax(amplitudes, axis=-1)]
-    def power(transform_n_bins): 
-        transform, bins = transform_n_bins
+        return np.argmax(amplitudes, axis=-1)
+    def power(transform): 
         return np.sum(np.abs(transform)*np.abs(transform), axis=-1)
-    def standard_deviation(transform_n_bins): return np.std(np.abs(transform_n_bins[0]), axis=-1)
-    def value_range(transform_n_bins): return np.ptp(np.abs(transform_n_bins[0]), axis=-1)
-    def variance(transform_n_bins): return np.var(np.abs(transform_n_bins[0]), axis=-1)
+    def standard_deviation(transform): return np.std(np.abs(transform), axis=-1)
+    def value_range(transform): return np.ptp(np.abs(transform), axis=-1)
+    def variance(transform): return np.var(np.abs(transform), axis=-1)
     
     funcs = [
         maximum, mean, median, minimum, peak_frequency, power, 
@@ -672,7 +682,7 @@ def finalize_df(dfs):
         on=['i_trial', 'i_window_in_trial', 'target']
     )
     df = df.rename(
-        mapper={'i_trial': 'Dataset', 
+        mapper={'i_trial': 'Trial', 
                 'i_window_in_trial': 'Window', 
                 'target': 'Target',
                }, axis=1)
@@ -690,7 +700,7 @@ def _find_col(columns, hint):
     return found_col[0]
 
 
-def save_features_by_trial(df, out_path, subject_id, split_name):
+def save_features_by_trial(df, out_path):
     """Save the feature DataFrame as 'h5' files to out_path one trial at a time.
     Thereby, create subdirectories for subjects and data splits.
 
@@ -701,16 +711,12 @@ def save_features_by_trial(df, out_path, subject_id, split_name):
     out_path: str
         The path to the root directory in which subdirectories will be created
         and finally 'h5' files will be stored.
-    subject_id: int
-        The id of the subject the features belong to.
-    split_name: str
-        The name of the data split, e.g. 'train', 'valid', 'eval', ...
     """
     # under out_path create a subdirectory wrt subject_id and split_name 
-    out_p = os.path.join(out_path, str(subject_id), split_name)
-    if not os.path.exists(out_p):
-        os.makedirs(out_p)
-    trial_col = _find_col(df.columns, 'Dataset')
+    #out_p = os.path.join(out_path, str(subject_id), split_name)
+    #if not os.path.exists(out_p):
+    #    os.makedirs(out_p)
+    trial_col = _find_col(df.columns, 'Trial')
     for trial, feats in df.groupby(trial_col):
         # store as hdf files, since reading is much faster than csv
         feats.reset_index(inplace=True, drop=True)
@@ -719,7 +725,7 @@ def save_features_by_trial(df, out_path, subject_id, split_name):
         
 def filter_df(df, query, exact_match=False, level_to_consider=None):
     """Filter the MultiIndex of a DataFrame wrt 'query'. Thereby, columns required
-    for decoding, i.e., 'Target', 'Dataset', 'Window' are always preserved.
+    for decoding, i.e., 'Target', 'Trial', 'Window' are always preserved.
 
     Parameters
     ----------
@@ -748,7 +754,7 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
         levels = [level_to_consider]
     # if available add target, trial and window to selection 
     info_cols = []
-    for info_col in ['Dataset', 'Window', 'Target']:
+    for info_col in ['Trial', 'Window', 'Target']:
         if info_col in df:
             info_col = _find_col(df.columns, info_col)
             info_cols.append(info_col)
@@ -773,14 +779,14 @@ def _examples_from_windows(df):
     if not isinstance(df.columns, pd.MultiIndex):
         df.columns = json_to_multiindex(df.columns)
     target_col = _find_col(df.columns, 'Target')
-    trial_col = _find_col(df.columns, 'Dataset')
+    trial_col = _find_col(df.columns, 'Trial')
     window_col = _find_col(df.columns, 'Window')
     # Check if we have variable length trials. If so, determine the minimum
     # number of windows of the shortest trial and use this number of windows
     # from every trial.
-    n_windows_per_trial = df.groupby('Dataset').tail(1)['Window']
+    n_windows_per_trial = df.groupby('Trial').tail(1)['Window']
     variable_length_trials = len(n_windows_per_trial.unique()) > 1
-    n_windows_min = df.groupby('Dataset').tail(1)['Window'].min()
+    n_windows_min = df.groupby('Trial').tail(1)['Window'].min()
     if variable_length_trials:
         print(f'Found inconsistent numbers of windows. '
               f'Will use the minimum number of windows ({n_windows_min+1}) '
@@ -855,7 +861,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     """
     if not isinstance(df.columns, pd.MultiIndex):
         df.columns = json_to_multiindex(df.columns)
-    trial_col = _find_col(df.columns, 'Dataset')
+    trial_col = _find_col(df.columns, 'Trial')
     target_col = _find_col(df.columns, 'Target')
     window_col = _find_col(df.columns, 'Window')
     if agg_func is not None:
@@ -879,7 +885,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
 
 
 def _aggregate_windows(df, agg_func):
-    trial_col = _find_col(df.columns, 'Dataset')
+    trial_col = _find_col(df.columns, 'Trial')
     grouped = df.groupby(trial_col)
     df = grouped.agg(agg_func)
     df.reset_index(inplace=True)
@@ -887,7 +893,7 @@ def _aggregate_windows(df, agg_func):
     # keep it at this point for compatibility
     df[_find_col(df.columns, 'Window')] = len(df) * [0]
     # agg changes dtype of target, force it to keep original dtype
-    cols = [_find_col(df, col) for col in ['Dataset', 'Target', 'Window']]
+    cols = [_find_col(df, col) for col in ['Trial', 'Target', 'Window']]
     df[cols] = df[cols].astype(np.int64)
     return df
 
@@ -1095,7 +1101,7 @@ def cross_validate(
     windows_as_examples: bool
         Whether to consider compute windows as independent examples.
     out_path: str
-        Directory to save results to.
+        Directory to save 'cv_results.csv' to.
     """
     invalid_cols = [
         (col, ty) for col, ty in df.dtypes.items() if ty not in ['float32', 'int64']]
