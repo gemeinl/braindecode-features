@@ -53,6 +53,20 @@ class MyFunctionTransformer(FunctionTransformer):
 def generate_feature_names(fu, ch_names):
     """From the feature names returned by the feature functions through the feature union,
     replace the unknown channels indicated by ids (ch0 or ch0-ch13) with their actual names.
+    
+    Parameters
+    ----------
+    fu: FeatureUnion
+        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+    ch_names: list
+        List of original channel names that will be inserted into the feature names
+        returned by the union.
+    
+    Returns
+    -------
+    feature_names: list
+        List of feature names including channel(s), frequency band(s), feature domain 
+        and feature type.
     """
     feature_names = fu.get_feature_names()
     mapping = {f'ch{i}': ch for i, ch in enumerate(ch_names)}
@@ -66,7 +80,23 @@ def generate_feature_names(fu, ch_names):
 
 
 def extract_time_features(windows_ds, frequency_bands, fu):
-    """
+    """Extract features in time domain. Therefore, iterate all the datasets. Use
+    windows of prefiltered band signals and compute features.
+    
+    Parameters
+    ----------
+    windows_ds: BaseConcatDataset of WindowsDataset
+        Braindecode dataset to be used for feature extraction.
+    frequency_bands: list(tuple)
+        A list of frequency bands of prefiltered signals.
+    fu: FeatureUnion
+        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+        
+    Returns
+    -------
+    time_df: DataFrame
+        The time domain feature DataFrame including target information and feature 
+        name annotations.
     """
     time_df = []
     for ds in windows_ds.datasets:
@@ -113,7 +143,24 @@ def extract_time_features(windows_ds, frequency_bands, fu):
 
 
 def extract_connectivity_features(windows_ds, frequency_bands, fu):
-    """
+    """Extract connectivity features from pairs of signals in time domain. 
+    Therefore, iterate all the datasets. Use windows of prefiltered band signals 
+    and compute features. 
+    
+    Parameters
+    ----------
+    windows_ds: BaseConcatDataset of WindowsDataset
+        Braindecode dataset to be used for feature extraction.
+    frequency_bands: list(tuple)
+        A list of frequency bands of prefiltered signals.
+    fu: FeatureUnion
+        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+        
+    Returns
+    -------
+    connectivity_df: DataFrame
+        The connectivity domain feature DataFrame including target information and feature 
+        name annotations.
     """
     connectivity_df = []
     for ds in windows_ds.datasets:
@@ -170,7 +217,23 @@ def _get_unfiltered_chs(windows_ds, frequency_bands):
 
 
 def extract_ft_features(windows_ds, frequency_bands, fu):
-    """
+    """Extract fourier transform features. Therefore, iterate all the datasets. 
+    Use windows, apply Fourier transform and compute features. 
+    
+    Parameters
+    ----------
+    windows_ds: BaseConcatDataset of WindowsDataset
+        Braindecode dataset to be used for feature extraction.
+    frequency_bands: list(tuple)
+        A list of frequency bands of prefiltered signals.
+    fu: FeatureUnion
+        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+        
+    Returns
+    -------
+    dft_df: DataFrame
+        The Fourier domain feature DataFrame including target information and feature 
+        name annotations.
     """
     dft_df = []
     for ds in windows_ds.datasets:
@@ -233,7 +296,24 @@ def _freq_to_scale(freq, wavelet, sfreq):
 
 
 def extract_wavelet_features(windows_ds, frequency_bands, fu):
-    """
+    """Extract wavelet transform features. Therefore, iterate all the datasets. 
+    Use windows of unfiltered signals, apply continuous wavelet transform and 
+    compute features. 
+    
+    Parameters
+    ----------
+    windows_ds: BaseConcatDataset of WindowsDataset
+        Braindecode dataset to be used for feature extraction.
+    frequency_bands: list(tuple)
+        A list of frequency bands of prefiltered signals.
+    fu: FeatureUnion
+        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+        
+    Returns
+    -------
+    cwt_df: DataFrame
+        The wavelet domain feature DataFrame including target information and feature 
+        name annotations.
     """
     w = 'morl'
     central_band = False
@@ -288,7 +368,23 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu):
 
 
 def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
-    """
+    """Extract wavelet transform features. Therefore, iterate all the datasets. 
+    Use windows of pairs of prefiltered signals and compute features. 
+    
+    Parameters
+    ----------
+    windows_ds: BaseConcatDataset of WindowsDataset
+        Braindecode dataset to be used for feature extraction.
+    frequency_bands: list(tuple)
+        A list of frequency bands of prefiltered signals.
+    fu: FeatureUnion
+        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+        
+    Returns
+    -------
+    cross_frequency_df: DataFrame
+        The cross frequency domain feature DataFrame including target information
+        and feature name annotations.
     """
     # TODO: improve this, sometimes a band is contained in the other which probably
     # does not make too much sense
@@ -518,6 +614,13 @@ def get_cross_frequency_feature_functions():
 
 
 def get_feature_functions():
+    """Get feature extraction functions.
+    
+    Returns
+    -------
+    dict
+        Mapping of feature domain to feature extraction functions.
+    """
     return {
         'Connectivity': get_connectivity_feature_functions(),
         'Cross-frequency': get_cross_frequency_feature_functions(),
@@ -528,6 +631,13 @@ def get_feature_functions():
 
 
 def get_extraction_routines():
+    """Get feature extraction routines.
+    
+    Returns
+    -------
+    dict
+        Mapping of feature domain to extraction routines.
+    """
     return {
         'Connectivity': extract_connectivity_features,
         'Cross-frequency': extract_cross_frequency_features,
@@ -549,6 +659,14 @@ def _merge_dfs(dfs, on):
 
 
 def finalize_df(dfs):
+    """Merge feature DataFrames returned by extraction routines to the final DataFrame.
+    This means renaming columns, and creating readible MultiIndex.
+    
+    Returns
+    -------
+    df: `pd.DataFrame`
+        The final feature DataFrame.
+    """
     df = _merge_dfs(
         dfs=dfs, 
         on=['i_trial', 'i_window_in_trial', 'target']
@@ -722,6 +840,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     windows_as_examples: bool
         Whether to move the window dimension to examples or features. Without 
         effect if 'agg_func' is not None.
+        
     Returns
     -------
     X: `np.ndarray`
@@ -798,6 +917,7 @@ def read_features(path, agg_func=None, columns_as_json=False, n_jobs=1):
         Whether to format the columns of the output DataFrame as JSON.
     n_jobs: int
         Number of workers to load files in parallel.
+        
     Returns
     -------
     dfs: `pd.DataFrame`
@@ -831,7 +951,27 @@ def _build_transformer_list(funcs):
 def extract_windows_ds_features(
     windows_ds, frequency_bands, feature_functions=None, 
     extraction_routines=None, n_jobs=1):
-    """Extrac features from a braindecode WindowsDataset."""
+    """Extrac features from a braindecode WindowsDataset.
+    
+    Parameters
+    ----------
+    windows_ds: BaseConcatDataset of WindowsDataset
+        Braindecode dataset to be used for feature extraction.
+    frequency_bands: list(tuple)
+        A list of frequency bands of prefiltered signals.
+    feature_functions: dict
+        List of feature extraction functions grouped by domain.
+    extraction_routines: dict
+        List of functions to extrac features from different domains.
+    n_jobs: int
+        Number of processes used for parallelization.
+    
+    Returns
+    -------
+    df: DataFrame
+        The final feature DataFrame holding all features, target information and 
+        feature name annotations.
+    """
     assert (extraction_routines is None and feature_functions is None) or (
         extraction_routines is not None and feature_functions is not None)
     if extraction_routines is None and feature_functions is None:
@@ -839,6 +979,7 @@ def extract_windows_ds_features(
     domain_dfs = {}
     # extract features by domain, since each domain has it's very own routine
     for domain in extraction_routines.keys():
+        # Do not extract cross-frequency features if there is only one band
         if len(frequency_bands) == 1 and domain == 'Cross-frequency':
             continue
         print(domain)
@@ -872,6 +1013,12 @@ def drop_window(df, window_i):
         The feature dataframe.
     window_i: int
         The id of the window to be dropped.
+    
+    Returns
+    -------
+    df: `pd.DataFrame`
+        The feature dataframe, where all rows of window_i where 
+        dropped and remaining windows were re-indexed.
     """
     # select all windows that are not window_i
     df = df[df.Window != window_i]
@@ -885,10 +1032,38 @@ def drop_window(df, window_i):
 
 
 def window_accuracy(y, y_pred):
+    """Compute the accuracy of window predictions.
+    
+    Parameters
+    ----------
+    y: array-like
+        Window labels.
+    y_pred: array-like
+        Window predictions.
+        
+    Returns
+    -------
+    Window accuracy.
+    """
     return (y == y_pred).mean()
 
 
 def trial_accuracy(y, y_pred, y_groups):
+    """Compute the accuracy of window predictions.
+    
+    Parameters
+    ----------
+    y: array-like
+        Window labels.
+    y_pred: array-like
+        Window predictions.
+    groups: array-like
+        Mapping of labels and predictions to groups.
+    
+    Returns
+    -------
+    Trial accuracy.
+    """
     pred_df = {'y': y, 'pred': y_pred, 'group': y_groups}
     trial_pred, trial_y = [], []
     for n, g in pd.DataFrame(pred_df).groupby('group'):
@@ -903,6 +1078,25 @@ def trial_accuracy(y, y_pred, y_groups):
 def cross_validate(
     df, clf, subject_id, only_last_fold, agg_func, windows_as_examples, 
     out_path=None):
+    """
+    Run (cross-)validation on features and targets in df using estimator clf.
+    
+    Parameters
+    ----------
+    df: `pd.DataFrame`
+        A feature DataFrame.
+    clf: sklearn.estimator
+        A scikit-learn estimator.
+    subject_id: int
+    only_last_fold: bool
+        Whether to only run the last fold of CV. Corresponds to 80/20 split.
+    agg_func: callable
+        Function to aggregate trial features, e.g. mean, median...
+    windows_as_examples: bool
+        Whether to consider compute windows as independent examples.
+    out_path: str
+        Directory to save results to.
+    """
     invalid_cols = [
         (col, ty) for col, ty in df.dtypes.items() if ty not in ['float32', 'int64']]
     if invalid_cols:
