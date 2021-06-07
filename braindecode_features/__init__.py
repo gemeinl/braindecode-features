@@ -650,8 +650,6 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
     return df[multiindex]
 
 
-
-
 def _examples_from_windows(df):
     # for easier handling, convert to multiindex
     if not isinstance(df.columns, pd.MultiIndex):
@@ -659,9 +657,22 @@ def _examples_from_windows(df):
     target_col = _find_col(df.columns, 'Target')
     trial_col = _find_col(df.columns, 'Dataset')
     window_col = _find_col(df.columns, 'Window')
+    # Check if we have variable length trials. If so, determine the minimum
+    # number of windows of the shortest trial and use this number of windows
+    # from every trial.
+    n_windows_per_trial = df.groupby('Dataset').tail(1)['Window']
+    variable_length_trials = len(n_windows_per_trial.unique()) > 1
+    n_windows_min = df.groupby('Dataset').tail(1)['Window'].min()
+    if variable_length_trials:
+        print(f'Found inconsistent numbers of windows. '
+              f'Will use the minimum number of windows ({n_windows_min+1}) '
+              f'as maximum.')
     new_df = []
     for group_i, ((_, window_i), g) in enumerate(
         df.groupby([trial_col, window_col])):
+        # If trial has excessive windows, skip them
+        if window_i > n_windows_min:
+            continue
         targets = g.pop(target_col)
         trials = g.pop(trial_col)
         g.pop(window_col)
