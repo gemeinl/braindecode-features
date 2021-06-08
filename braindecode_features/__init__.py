@@ -1,7 +1,6 @@
 import os
 import re
 import glob
-from functools import partial
 
 import numpy as np
 import pandas as pd
@@ -41,6 +40,7 @@ class MyFunctionTransformer(FunctionTransformer):
         # bins at the position of argmax amplitudes for peak frequency
         # TODO: also, cross-frequency features get a tuple of twice the amount of data
         n_dim_in = X.ndim #if not isinstance(X, tuple) else X[0].ndim
+        #assert n_dim_in == 4, f'Expected 4D input as n_bands x n_windows x n_channels x n_times. Got {X.shape}.'
         # expect input as (n_bands x n_windows x n_channels x n_times)
         #assert n_dim_in in [3, 4], f'Expected input data as (2 x) n_windows x n_channels x n_times. Got {n_dim_in}.'
         # cross-frequency data input
@@ -48,6 +48,8 @@ class MyFunctionTransformer(FunctionTransformer):
         #    assert X.shape[0] == 2, f'For cross-frequency features expect first dimension to be 2. Got {X.shape}'
         self.chs_in_ = X.shape[-2] #if not isinstance(X, tuple) else X[0].shape[-2]
         X = super().transform(X=X)
+        #if X.ndim != n_dim_in: #, f'Expected same number of dimension in input and output. Got {n_dim_in} and {X.ndim}.'
+        #    X = np.expand_dims(X, axis=-1)
         # if there is more than one value per channel, last dimension will not be squeezed
         # then channels should be second last. if there is one value per channel, channels
         # are last dimension
@@ -182,8 +184,10 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
                              if ch.endswith('-'.join([str(b) for b in frequency_band]))]
             # get the band data
             data = ds.windows.get_data(picks=band_channels)    
+            # add empty fourth dimension representing a single frequency band
+            #data = data[None, :]
             # call all features in the union
-            f.append(fu.fit_transform(data).astype(np.float32))
+            f.append(fu.fit_transform(data).astype(np.float32))            
             # first, remove frequency info from channel names, then generate feature names
             names = generate_feature_names(fu, [ch.split('_')[0] for ch in band_channels])
             # manually re-add the frequency band
@@ -521,7 +525,7 @@ def get_time_feature_functions():
     
     funcs = [
         covariance, energy, 
-        partial(higuchi_fractal_dimension, kmax=3), interquartile_range,
+        higuchi_fractal_dimension, interquartile_range,
         kurtosis, line_length, maximum, mean, median, 
         minimum, petrosian_fractal_dimension, root_mean_square,
         #shannon_entropy,
@@ -536,7 +540,9 @@ def get_connectivity_feature_functions():
     # TODO: add autocorrelation
     # https://stackoverflow.com/questions/643699/how-can-i-use-numpy-correlate-to-do-autocorrelation
     def phase_locking_value(X):
-        assert X.ndim == 3
+        #assert X.ndim == 4, X.shape
+        #X = np.squeeze(X, axis=0)
+        # remove empty first dimension
         analytical_signal = hilbert(X, axis=-1)
         instantatneous_phases = np.unwrap(np.angle(analytical_signal), axis=-1)
         plvs = []
@@ -546,7 +552,9 @@ def get_connectivity_feature_functions():
                 theta2=instantatneous_phases[:,ch_j],
             )
             plvs.append(plv)
-        return np.array(plvs).T
+        plvs = np.array(plvs).T
+        #plvs = np.expand_dims(plvs, axis=0)
+        return plvs
     def _phase_locking_value(theta1, theta2):
         delta = np.subtract(theta1, theta2)
         xs_mean = np.mean(np.cos(delta), axis=-1)
@@ -964,14 +972,25 @@ def _build_transformer_list(funcs):
         if hasattr(func.func, '__name__'):
             # for functions wrapped with MyFunctionTransformer
             transformer_list.append((func.func.__name__, func))
-        else:
+        #else:
             # For functions additionally initialized with partial 
-            transformer_list.append((func.func.func.__name__, func))
+            #transformer_list.append((func.func.func.__name__, func))
     return transformer_list
 
 
+def _params_to_domain_params(params):
+    # expect params as {domain__func__param: value, ...}
+    params_by_domain = {p.split('__')[0]: {} for p in params}
+    for p, v in params.items():
+        domain, func, param = p.split('__')
+        if '__'.join([func, 'kw_args']) not in params_by_domain[domain]:
+            params_by_domain[domain]['__'.join([func, 'kw_args'])] = {}
+        params_by_domain[domain]['__'.join([func, 'kw_args'])].update({param: v})
+    return params_by_domain
+
+
 def extract_windows_ds_features(
-    windows_ds, frequency_bands, domains=None, n_jobs=1):
+    windows_ds, frequency_bands, params=None, domains=None, n_jobs=1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
@@ -995,6 +1014,8 @@ def extract_windows_ds_features(
     if domains is not None:
         feature_functions = {domain: feature_functions[domain] for domain in domains}
         extraction_routines = {domain: extraction_routines[domain] for domain in domains}
+    if params is not None:
+        params = _params_to_domain_params(params=params)
     domain_dfs = {}
     # extract features by domain, since each domain has it's very own routine
     for domain in extraction_routines.keys():
@@ -1003,18 +1024,18 @@ def extract_windows_ds_features(
             continue
         print(domain)
         transformer_list = _build_transformer_list(feature_functions[domain])
-
-        # TODO: find a solution that makes 'set_params()' work
-        # such that partial does not have to be used
         fu = FeatureUnion(
             transformer_list=transformer_list,
             n_jobs=n_jobs,
         )
+        # set params
+        if params is not None and domain in params:
+            fu.set_params(**params[domain])
         # extract features of one domain at a time
         domain_dfs[domain] = extraction_routines[domain](
             windows_ds=windows_ds,
             frequency_bands=frequency_bands,
-            fu=fu
+            fu=fu,
         )
     # concatenate domain dfs and make final df pretty
     df = finalize_df(
