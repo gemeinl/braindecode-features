@@ -35,13 +35,18 @@ class MyFunctionTransformer(FunctionTransformer):
         return [f'ch{i}-ch{j}' for i, j in zip(*np.triu_indices(chs_in, k=int(not include_diag)))]
 
     def transform(self, X):
-        # print(X.shape)  # crashes but does not print ?!?!
-        # TODO: this is not nice. DFT features get a tuple of transform and frequency bins
+        # TODO: always expect 4d input?
+        # TODO: always preserve input dimensions?
         # could probably remove the bins. could then use argmax of amplitudes instead of 
         # bins at the position of argmax amplitudes for peak frequency
         # TODO: also, cross-frequency features get a tuple of twice the amount of data
-        n_dim_in = X.ndim if not isinstance(X, tuple) else X[0].ndim
-        self.chs_in_ = X.shape[-2] if not isinstance(X, tuple) else X[0].shape[-2]
+        n_dim_in = X.ndim #if not isinstance(X, tuple) else X[0].ndim
+        # expect input as (n_bands x n_windows x n_channels x n_times)
+        #assert n_dim_in in [3, 4], f'Expected input data as (2 x) n_windows x n_channels x n_times. Got {n_dim_in}.'
+        # cross-frequency data input
+        #if n_dim_in == 4:
+        #    assert X.shape[0] == 2, f'For cross-frequency features expect first dimension to be 2. Got {X.shape}'
+        self.chs_in_ = X.shape[-2] #if not isinstance(X, tuple) else X[0].shape[-2]
         X = super().transform(X=X)
         # if there is more than one value per channel, last dimension will not be squeezed
         # then channels should be second last. if there is one value per channel, channels
@@ -418,7 +423,7 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
             chs2 = [ch for ch in ds.windows.ch_names if ch.endswith(band2)]
             data2 = ds.windows.get_data(picks=chs2)
             # call all features in the union
-            f.append(fu.fit_transform((data1, data2)).astype(np.float32))
+            f.append(fu.fit_transform(np.array([data1, data2])).astype(np.float32))
             # first, manually add the frequency bands to the used channel names
             # then generate feature names
             feature_names.append(generate_feature_names(
@@ -623,7 +628,7 @@ def get_cross_frequency_feature_functions():
     return [MyFunctionTransformer(func=func) for func in funcs]
 
 
-def get_feature_functions():
+def get_feature_functions(domain=None):
     """Get feature extraction functions.
     
     Returns
@@ -631,16 +636,19 @@ def get_feature_functions():
     dict
         Mapping of feature domain to feature extraction functions.
     """
-    return {
+    feature_functions = {
         'Connectivity': get_connectivity_feature_functions(),
         'Cross-frequency': get_cross_frequency_feature_functions(),
         'CWT': get_cwt_feature_functions(),
         'DFT': get_ft_feature_functions(),
         'Time': get_time_feature_functions()
     }
+    if domain is not None:
+        feature_functions = {domain: feature_functions[domain]}
+    return feature_functions
 
 
-def get_extraction_routines():
+def get_extraction_routines(domain=None):
     """Get feature extraction routines.
     
     Returns
@@ -648,17 +656,20 @@ def get_extraction_routines():
     dict
         Mapping of feature domain to extraction routines.
     """
-    return {
+    extraction_routines = {
         'Connectivity': extract_connectivity_features,
         'Cross-frequency': extract_cross_frequency_features,
         'CWT': extract_wavelet_features,
         'DFT': extract_ft_features,
         'Time': extract_time_features,
     }
+    if domain is not None:
+        extraction_routines = {domain: extraction_routines[domain]}
+    return extraction_routines
 
         
-def get_feature_functions_and_extraction_routines():
-        return get_feature_functions(), get_extraction_routines()
+def get_feature_functions_and_extraction_routines(domain=None):
+        return get_feature_functions(domain=domain), get_extraction_routines(domain=domain)
 
         
 def _merge_dfs(dfs, on):
@@ -700,17 +711,22 @@ def _find_col(columns, hint):
     return found_col[0]
 
 
-def save_features_by_trial(df, out_path):
+def save_features_by_trial(df, out_path, subject_id, split_name):
+    print("Deprecated. Use 'save_features' instead. 'subject_id' and "
+          "'split_name' no longer supported. Create subdirectories "
+          "outside of this function.")
+    return
+
+
+def save_features(df, out_path):
     """Save the feature DataFrame as 'h5' files to out_path one trial at a time.
-    Thereby, create subdirectories for subjects and data splits.
 
     Parameters
     ----------
     df: pd.DataFrame
-        The feature DataFrame as returned by `extract_windows_ds_features`
+        The feature DataFrame as returned by `extract_windows_ds_features`.
     out_path: str
-        The path to the root directory in which subdirectories will be created
-        and finally 'h5' files will be stored.
+        The path to the root directory in which 'h5' files will be stored.
     """
     # under out_path create a subdirectory wrt subject_id and split_name 
     #out_p = os.path.join(out_path, str(subject_id), split_name)
@@ -955,9 +971,8 @@ def _build_transformer_list(funcs):
 
 
 def extract_windows_ds_features(
-    windows_ds, frequency_bands, feature_functions=None, 
-    extraction_routines=None, n_jobs=1):
-    """Extrac features from a braindecode WindowsDataset.
+    windows_ds, frequency_bands, domains=None, n_jobs=1):
+    """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
     ----------
@@ -965,23 +980,21 @@ def extract_windows_ds_features(
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple)
         A list of frequency bands of prefiltered signals.
-    feature_functions: dict
-        List of feature extraction functions grouped by domain.
-    extraction_routines: dict
-        List of functions to extrac features from different domains.
+    domains: list(str)
+        List of domains of features to be computed.
     n_jobs: int
         Number of processes used for parallelization.
     
     Returns
     -------
-    df: DataFrame
+    df: `pd.DataFrame`
         The final feature DataFrame holding all features, target information and 
         feature name annotations.
     """
-    assert (extraction_routines is None and feature_functions is None) or (
-        extraction_routines is not None and feature_functions is not None)
-    if extraction_routines is None and feature_functions is None:
-        feature_functions, extraction_routines = get_feature_functions_and_extraction_routines()
+    feature_functions, extraction_routines = get_feature_functions_and_extraction_routines()
+    if domains is not None:
+        feature_functions = {domain: feature_functions[domain] for domain in domains}
+        extraction_routines = {domain: extraction_routines[domain] for domain in domains}
     domain_dfs = {}
     # extract features by domain, since each domain has it's very own routine
     for domain in extraction_routines.keys():
