@@ -460,6 +460,7 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
 
 
 def get_time_feature_functions():
+    """Get feature functions of time domain."""
     # TODO: add slow time domain features
     # https://github.com/gilestrolab/pyrem/blob/master/src/pyrem/univariate.py
     # Time domain features
@@ -536,6 +537,7 @@ def get_time_feature_functions():
 
 
 def get_connectivity_feature_functions():
+    """Get feature functions of the connectivity domain."""
     # Connectivity
     # TODO: add autocorrelation
     # https://stackoverflow.com/questions/643699/how-can-i-use-numpy-correlate-to-do-autocorrelation
@@ -568,6 +570,7 @@ def get_connectivity_feature_functions():
 
 
 def get_ft_feature_functions():
+    """Get feature functions of the Fourier domain."""
     # DFT
     # TODO: add spectral entropy?
     def maximum(transform): return np.max(np.abs(transform), axis=-1)
@@ -590,6 +593,7 @@ def get_ft_feature_functions():
 
 
 def get_cwt_feature_functions():
+    """Get feature functions of the wavelet domain."""
     # CWT
     def bounded_variation(X):
         # https://sci-hub.se/10.1109/issnip.2008.4762005, p310, 5)
@@ -615,6 +619,7 @@ def get_cwt_feature_functions():
 
 
 def get_cross_frequency_feature_functions():
+    """Get feature functions of the cross-frequency domain."""
     # TODO klassisch: theta zu gamma band
     def cross_frequency_coupling(data1_n_data2):
         # loosely following https://mark-kramer.github.io/Case-Studies-Python/07.html
@@ -639,6 +644,11 @@ def get_cross_frequency_feature_functions():
 def get_feature_functions(domain=None):
     """Get feature extraction functions.
     
+    Parameters
+    ----------
+    domain: str
+        The name of the domain.
+        
     Returns
     -------
     dict
@@ -659,6 +669,11 @@ def get_feature_functions(domain=None):
 def get_extraction_routines(domain=None):
     """Get feature extraction routines.
     
+    Parameters
+    ----------
+    domain: str
+        The name of the domain.
+        
     Returns
     -------
     dict
@@ -677,7 +692,19 @@ def get_extraction_routines(domain=None):
 
         
 def get_feature_functions_and_extraction_routines(domain=None):
-        return get_feature_functions(domain=domain), get_extraction_routines(domain=domain)
+    """Get feature functions and extraction routines of all or a single domain.
+    
+    Parameters
+    ----------
+    domain: str
+        The name of the domain.
+    
+    Returns
+    -------
+    tuple(dict(str: func), dics(str, func))
+        Feature functions and extraction routines ordered by domain.
+    """
+    return get_feature_functions(domain=domain), get_extraction_routines(domain=domain)
 
         
 def _merge_dfs(dfs, on):
@@ -731,7 +758,7 @@ def save_features(df, out_path):
 
     Parameters
     ----------
-    df: pd.DataFrame
+    df: `pd.DataFrame`
         The feature DataFrame as returned by `extract_windows_ds_features`.
     out_path: str
         The path to the root directory in which 'h5' files will be stored.
