@@ -47,6 +47,7 @@ class MyFunctionTransformer(FunctionTransformer):
         #if n_dim_in == 4:
         #    assert X.shape[0] == 2, f'For cross-frequency features expect first dimension to be 2. Got {X.shape}'
         self.chs_in_ = X.shape[-2] #if not isinstance(X, tuple) else X[0].shape[-2]
+        examples_in = X.shape[-3]
         X = super().transform(X=X)
         #if X.ndim != n_dim_in: #, f'Expected same number of dimension in input and output. Got {n_dim_in} and {X.ndim}.'
         #    X = np.expand_dims(X, axis=-1)
@@ -56,6 +57,8 @@ class MyFunctionTransformer(FunctionTransformer):
         # TODO: could also try to always keep last dimension as '1', so channels will always be
         # second last dimension
         self.chs_out_ = X.shape[-1] if not n_dim_in == X.ndim else X.shape[-2]
+        # TODO: make sure number of examples did not change?
+        assert X.shape[0] == examples_in, f'Number of examples changed from {examples_in} to {X.shape[0]}.'
         return X
 
     
@@ -116,6 +119,7 @@ def extract_time_features(windows_ds, frequency_bands, fu):
             # pick all channels corresponding to a single frequency band
             band_channels = [ch for ch in ds.windows.ch_names 
                              if ch.endswith('-'.join([str(b) for b in frequency_band]))]
+            # TODO: do all bands at the same time?
             # get the band data
             data = ds.windows.get_data(picks=band_channels)    
             # call all features in the union
@@ -165,7 +169,7 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
     frequency_bands: list(tuple)
         A list of frequency bands of prefiltered signals.
     fu: FeatureUnion
-        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+        Scikit-learn FeatureUnion of MyFunctionTransformers extracting features.
         
     Returns
     -------
@@ -187,7 +191,7 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
             # add empty fourth dimension representing a single frequency band
             #data = data[None, :]
             # call all features in the union
-            f.append(fu.fit_transform(data).astype(np.float32))            
+            f.append(fu.fit_transform(data).astype(np.float32))   
             # first, remove frequency info from channel names, then generate feature names
             names = generate_feature_names(fu, [ch.split('_')[0] for ch in band_channels])
             # manually re-add the frequency band
@@ -426,8 +430,9 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
             band2 = '-'.join([str(band2[0]), str(band2[1])])
             chs2 = [ch for ch in ds.windows.ch_names if ch.endswith(band2)]
             data2 = ds.windows.get_data(picks=chs2)
+            data = np.array([data1, data2])
             # call all features in the union
-            f.append(fu.fit_transform(np.array([data1, data2])).astype(np.float32))
+            f.append(fu.fit_transform(data).astype(np.float32))
             # first, manually add the frequency bands to the used channel names
             # then generate feature names
             feature_names.append(generate_feature_names(
@@ -1024,7 +1029,7 @@ def extract_windows_ds_features(
     ----------
     windows_ds: BaseConcatDataset of WindowsDataset
         Braindecode dataset to be used for feature extraction.
-    frequency_bands: list(tuple)
+    frequency_bands: list(tuple(int, int))
         A list of frequency bands of prefiltered signals.
     domains: list(str)
         List of domains of features to be computed.
