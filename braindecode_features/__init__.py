@@ -1,6 +1,7 @@
 import os
 import re
 import glob
+import logging
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,9 @@ from sklearn.preprocessing import FunctionTransformer
 from sklearn.model_selection import KFold, GroupKFold
 
 import pywt
+
+
+log = logging.getLogger(__name__)
 
 
 class MyFunctionTransformer(FunctionTransformer):
@@ -121,7 +125,8 @@ def extract_time_features(windows_ds, frequency_bands, fu):
                              if ch.endswith('-'.join([str(b) for b in frequency_band]))]
             # TODO: do all bands at the same time?
             # get the band data
-            data = ds.windows.get_data(picks=band_channels)    
+            data = ds.windows.get_data(picks=band_channels)
+            log.info(f'time before union {data.shape}')
             # call all features in the union
             f.append(fu.fit_transform(data).astype(np.float32))
             # first, remove frequency info from channel names, then generate feature names
@@ -311,7 +316,7 @@ def _freq_to_scale(freq, wavelet, sfreq):
     see: https://de.mathworks.com/help/wavelet/ref/scal2frq.html """
     central_freq = pywt.central_frequency(wavelet)
     if not freq > 0:
-        print("freq smaller or equal to zero! using .1 instead")
+        log.warning("'freq' smaller or equal to zero! Using .1 instead.")
         freq = .1
     scale = central_freq / freq
     return scale * sfreq
@@ -752,10 +757,9 @@ def _find_col(columns, hint):
 
 
 def save_features_by_trial(df, out_path, subject_id, split_name):
-    print("Deprecated. Use 'save_features' instead. 'subject_id' and "
-          "'split_name' no longer supported. Create subdirectories "
-          "outside of this function.")
-    return
+    log.warning("Deprecated. Use 'save_features' instead. 'subject_id' and "
+                "'split_name' no longer supported. Create subdirectories "
+                "outside of this function.")
 
 
 def save_features(df, out_path):
@@ -844,9 +848,9 @@ def _examples_from_windows(df):
     variable_length_trials = len(n_windows_per_trial.unique()) > 1
     n_windows_min = df.groupby('Trial').tail(1)['Window'].min()
     if variable_length_trials:
-        print(f'Found inconsistent numbers of windows. '
-              f'Will use the minimum number of windows ({n_windows_min+1}) '
-              f'as maximum.')
+        log.warning(f'Found inconsistent numbers of windows. '
+                    f'Will use the minimum number of windows ({n_windows_min+1}) '
+                    f'as maximum.')
     new_df = []
     for group_i, ((_, window_i), g) in enumerate(
         df.groupby([trial_col, window_col])):
@@ -922,9 +926,9 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     window_col = _find_col(df.columns, 'Window')
     if agg_func is not None:
         if windows_as_examples:
-            print("'windows_as_examples' without effect if 'agg_func' is not None.")
+            log.warning("'windows_as_examples' without effect if 'agg_func' is not None.")
         if window_col not in df.columns or len(set(df[window_col])) == 1:
-            print("Data was already aggregated.")
+            log.warning("Data was already aggregated.")
         else:
             df = _aggregate_windows(df=df, agg_func=agg_func)
     else:
@@ -1054,7 +1058,7 @@ def extract_windows_ds_features(
         # Do not extract cross-frequency features if there is only one band
         if len(frequency_bands) == 1 and domain == 'Cross-frequency':
             continue
-        print(domain)
+        log.info(f'Computing features of domain: {domain}.')
         transformer_list = _build_transformer_list(feature_functions[domain])
         fu = FeatureUnion(
             transformer_list=transformer_list,
@@ -1172,7 +1176,7 @@ def cross_validate(
     invalid_cols = [
         (col, ty) for col, ty in df.dtypes.items() if ty not in ['float32', 'int64']]
     if invalid_cols:
-        print(f'Only integer and float values are allowed to exist in the DataFrame. '
+        log.error(f'Only integer and float values are allowed to exist in the DataFrame. '
               f'Found {invalid_cols}. Please convert.')
         return
     assert not pd.isna(df).values.any(), 'Found NaN in DataFrame.'
@@ -1234,4 +1238,4 @@ def cross_validate(
             out_file = os.path.join(os.path.dirname(os.path.dirname(out_path)), 'cv_results.csv')
             info.to_csv(out_file, mode='a', header=not os.path.exists(out_file))
         cols = ['estimator', 'agg_func', 'windows_as_examples', 'window_accuracy', 'trial_accuracy']
-        print(info[cols].tail(1))
+        log.info(info[cols].tail(1))
