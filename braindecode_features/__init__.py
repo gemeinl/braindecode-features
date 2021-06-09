@@ -62,7 +62,7 @@ class MyFunctionTransformer(FunctionTransformer):
         # second last dimension
         self.chs_out_ = X.shape[-1] if not n_dim_in == X.ndim else X.shape[-2]
         # TODO: make sure number of examples did not change?
-        assert X.shape[0] == examples_in, f'Number of examples changed from {examples_in} to {X.shape[0]}.'
+        assert X.shape[-2] == examples_in, f'Number of examples changed from {examples_in} to {X.shape[0]}.'
         return X
 
     
@@ -119,13 +119,19 @@ def extract_time_features(windows_ds, frequency_bands, fu):
         # for time domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]    
         f, feature_names = [], []
+        all_band_channels = []
         for frequency_band in frequency_bands:
             # pick all channels corresponding to a single frequency band
-            band_channels = [ch for ch in ds.windows.ch_names 
-                             if ch.endswith('-'.join([str(b) for b in frequency_band]))]
-            # TODO: do all bands at the same time?
-            # get the band data
-            data = ds.windows.get_data(picks=band_channels)
+            all_band_channels.append([ch for ch in ds.windows.ch_names 
+                             if ch.endswith('-'.join([str(b) for b in frequency_band]))])
+        # TODO: do all bands at the same time?
+        # get the band data
+        all_data = np.array([ds.windows.get_data(picks=band_channels) 
+                             for band_channels in all_band_channels])
+        #f.append(fu.fit_transform(all_data).astype(np.float32))
+        #log.info(f"time all_data after union shape {f[-1].shape}")
+
+        for data, band_channels in zip(all_data, all_band_channels):
             log.info(f'time before union {data.shape}')
             # call all features in the union
             f.append(fu.fit_transform(data).astype(np.float32))
@@ -271,13 +277,17 @@ def extract_ft_features(windows_ds, frequency_bands, fu):
         f, feature_names = [], []
         # TODO: give all bands at the same time?
         # TODO: enables power ratio and spectral entropy
+        all_data = []
         for l_freq, h_freq in frequency_bands:
             # select the frequency bins that best fit the chosen frequency bands
             l_id = np.argmin(np.abs(bins-l_freq))
             h_id = np.argmin(np.abs(bins-h_freq))
             # get the data and the bins
             #data = (transform[:,:,l_id:h_id+1], bins[l_id:h_id+1])
-            data = transform[:,:,l_id:h_id+1]
+            all_data.append(transform[:,:,l_id:h_id+1])
+        
+        for data, (l_freq, h_freq) in zip(all_data, frequency_bands):
+            log.info(f'dft before union {data.shape}')
             # call all features in the union 
             f.append(fu.fit_transform(data).astype(np.float32))
             # first, manually add the frequency band to the used channel names
@@ -498,7 +508,7 @@ def get_time_feature_functions():
             x.append([np.log(float(1) / k), 1])
         L = np.array(L)
         ps = []
-        for i in range(L.shape[1]):
+        for i in range(L.shape[-2]):
             (p, r1, r2, s) = np.linalg.lstsq(x, L[:,i,:], rcond=None)
             ps.append(p[0,:])
         return np.array(ps)
@@ -535,12 +545,17 @@ def get_time_feature_functions():
     
     
     funcs = [
-        covariance, energy, 
-        higuchi_fractal_dimension, interquartile_range,
+        covariance,
+        energy, 
+        higuchi_fractal_dimension,
+        interquartile_range,
         kurtosis, line_length, maximum, mean, median, 
-        minimum, petrosian_fractal_dimension, root_mean_square,
+        minimum, 
+        petrosian_fractal_dimension,
+        root_mean_square,
         #shannon_entropy,
-        skewness, standard_deviation, variance, zero_crossings, 
+        skewness, standard_deviation, variance, 
+        zero_crossings,
         zero_crossings_derivative,
     ]
     return [MyFunctionTransformer(func=func) for func in funcs]
@@ -558,7 +573,7 @@ def get_connectivity_feature_functions():
         analytical_signal = hilbert(X, axis=-1)
         instantatneous_phases = np.unwrap(np.angle(analytical_signal), axis=-1)
         plvs = []
-        for ch_i, ch_j in zip(*np.triu_indices(X.shape[1], k=1)):
+        for ch_i, ch_j in zip(*np.triu_indices(X.shape[-2], k=1)):
             plv = _phase_locking_value(
                 theta1=instantatneous_phases[:,ch_i],
                 theta2=instantatneous_phases[:,ch_j],
@@ -939,7 +954,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     y = df[target_col].to_numpy()
     groups = df[trial_col].to_numpy()
     feature_names = df.columns[3:].to_frame(index=False)
-    assert len(feature_names) == X.shape[1]
+    assert len(feature_names) == X.shape[-1]
     assert X.shape[0] == y.shape[0] == groups.shape[0]
     return X, y, groups, feature_names
 
