@@ -127,8 +127,9 @@ def extract_time_features(windows_ds, frequency_bands, fu):
                              for band_channels in all_band_channels])
         #f.append(fu.fit_transform(all_data).astype(np.float32))
         #log.info(f"time all_data after union shape {f[-1].shape}")
+        log.debug(f'fu transformer list {len(fu.transformer_list)}')
 
-        for data, band_channels in zip(all_data, all_band_channels):
+        for data, band_channels, frequency_band in zip(all_data, all_band_channels, frequency_bands):
             log.debug(f'time before union {data.shape}')
             # call all features in the union
             f.append(fu.fit_transform(data).astype(np.float32))
@@ -141,6 +142,7 @@ def extract_time_features(windows_ds, frequency_bands, fu):
                 ]) for name in names])
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
+        log.debug(f'f shape {f.shape}')
         feature_names = np.concatenate(feature_names, axis=-1)
         feature_names = ['__'.join(['Time', name]) for name in feature_names]
         time_df.append(

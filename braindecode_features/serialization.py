@@ -4,7 +4,7 @@ import glob
 import pandas as pd
 from joblib import Parallel, delayed
 
-from .utils import _read_and_aggregate
+from .utils import _read_and_aggregate, _find_col
 
 
 def save_features(df, out_path):
@@ -25,7 +25,7 @@ def save_features(df, out_path):
     for trial, feats in df.groupby(trial_col):
         # store as hdf files, since reading is much faster than csv
         feats.reset_index(inplace=True, drop=True)
-        feats.to_hdf(os.path.join(out_p, f'{trial}.h5'), 'data')
+        feats.to_hdf(os.path.join(out_path, f'{trial}.h5'), 'data')
         
         
 def read_features(path, agg_func=None, columns_as_json=False, n_jobs=1):

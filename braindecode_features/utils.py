@@ -101,13 +101,14 @@ def drop_window(df, window_i):
         dropped and remaining windows were re-indexed.
     """
     # select all windows that are not window_i
-    df = df[df.Window != window_i]
-    windows = df.pop('Window')
+    window_col = _find_col(df, 'Window')
+    df = df[df[window_col] != window_i]
+    windows = df.pop(window_col)
     # TODO: is it OK to do this?
     # reindex the windows
     windows -= windows.values > window_i
     # insert the updated windows again
-    df.insert(1, 'Window', windows)
+    df.insert(1, window_col, windows)
     return df
 
 

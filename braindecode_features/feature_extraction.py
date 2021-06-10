@@ -110,7 +110,7 @@ def _finalize_df(dfs):
                 'target': 'Target',
                }, axis=1)
     df.columns = pd.MultiIndex.from_tuples(
-        [col.split('__') if '__' in col else [col, '', '', ''] for col in df.columns],
+        [col.split('__') if '__' in col else ['Description', col, '', ''] for col in df.columns],
         names=['Domain', 'Feature', 'Channel', 'Frequency']
     )
     return df

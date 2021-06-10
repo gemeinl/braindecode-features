@@ -39,8 +39,6 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
         predictions to trial predictions.)
     feature_names: `pd.DataFrame`
     """
-    if not isinstance(df.columns, pd.MultiIndex):
-        df.columns = json_to_multiindex(df.columns)
     trial_col = _find_col(df.columns, 'Trial')
     target_col = _find_col(df.columns, 'Target')
     window_col = _find_col(df.columns, 'Window')
@@ -204,9 +202,6 @@ def trial_accuracy(y, y_pred, y_groups):
 
 
 def _examples_from_windows(df):
-    # for easier handling, convert to multiindex
-    if not isinstance(df.columns, pd.MultiIndex):
-        df.columns = json_to_multiindex(df.columns)
     target_col = _find_col(df.columns, 'Target')
     trial_col = _find_col(df.columns, 'Trial')
     window_col = _find_col(df.columns, 'Window')
