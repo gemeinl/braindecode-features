@@ -140,7 +140,7 @@ braindecode-features offers a simple way to filter the potentially huge feature 
       level_to_consider=1,
   )
   ```
-  <img src="feature_df_variance_subset.png" width="600">  
+  <img src="images/feature_df_variance_subset.png" width="600">  
 - filter for features that were extracted at electrode locations that conain a 'C' in the sensor name (including bivariate features where one channel had a 'C' in its name):
   ```python
   from braindecode_features import filter_df
