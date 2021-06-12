@@ -10,7 +10,7 @@ It implements several extraction routines suitable to extract features that cove
 This includes univariate and bivariate time domain features, features based on Fourier, Hilbert, and wavelet transform, as well as cross-frequency features.
 
 ## How does it work?
-Basic usage of braindecode-features is fairly simple and demostrated in the code cell below:
+Basic usage of braindecode-features is fairly simple and demonstrated in the code cell below:
 ```python
 # Assume we have data given as a braindecode WindowsDataset
 # We define a number of frequency bands which we are interested in
@@ -47,7 +47,7 @@ Features implemented with this domain are:
 - cross_frequency_coupling
 
 ### [Fourier](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/fourier.py#L35)  
-Unfiltered signals are taken by the Fourier extraction routine. It transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks the resulting bins correspoinding to the specified frequency bands. The shape that is handed to the fourier feature extraction functions is `(n_bins x n_windows x n_channels x n_times)`.  
+Unfiltered signals are taken by the Fourier extraction routine. It transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks the resulting bins corresponding to the specified frequency bands. The shape that is handed to the fourier feature extraction functions is `(n_bins x n_windows x n_channels x n_times)`.  
 Features implemented with this domain are:  
 - maximum
 - mean
@@ -94,8 +94,8 @@ Features implemented with this domain are:
 - variance
 
 ## What are the specials about the decoding part?
-Inspired by the [cropped decoding](https://braindecode.org/auto_examples/plot_bcic_iv_2a_moabb_cropped.html) of the [neural networks implemented in braindecode](https://braindecode.org/api.html#models) signals were split into compute windows. In the feature DataFrame, they are listed as a seperate column and there are multiple ways to handle them:
-- Interpret every window as an independent example. This corresponds to the standard feature DataFrame. Note that this will require to combine window predictions in the end again to obtain trial predictions.
+Inspired by the [cropped decoding](https://braindecode.org/auto_examples/plot_bcic_iv_2a_moabb_cropped.html) of the [neural networks implemented in braindecode](https://braindecode.org/api.html#models) signals were split into compute windows. In the feature DataFrame, they are listed as a separate column and there are multiple ways to handle them:
+- Interpret every window as an independent example. This corresponds to the standard feature DataFrame. Note that this will require combination of window predictions in the end again to obtain trial predictions.
 - Aggregate the features over all windows of a trial. Note that this eliminates all time-resolved information.
   <img src="avg_feature_df.png" width="600">  
 - Do none of the above and create giant feature vectors by appending all window features. Note that the window information is then moved from a single column to the MultiIndex. Also note that if there are a variable number of windows per trial, then the minimum number of windows of a trial has to be used for all trials to create feature vectors of the same length required for the decoders.  
@@ -115,6 +115,55 @@ The function will transform the feature DataFrame into X, y, and groups that are
 The feature names are generated during extraction of features and used as MultiIndex in the feature DataFrame. When preparing features for decoding, they are converted into a new DataFrame with the columns Domain, Feature, (Window,) Channel, and Frequency which looks as follows.  
 <img src="feature_names.png" width="600">  
 The feature names allow for detailed post-hoc analysis, since they hold all required information to backtrack a feature performing well during decoding to its origin.
+
+
+## How can I pick a specific subset of features for decoing?
+braindecode-features offers a simple way to filter the potentially huge feature DataFrame to a subset of features as demonstrated below:
+- filter for features that were extracted from the Fourier domain:
+  ```python
+  from braindecode_features import filter_df
+  subset_df = filter_df(
+      df=feature_df,
+      query='Fourier',
+      exact_match=False,  # True
+      level_to_consider=None,  # 0
+  )
+  ```
+  <img src="feature_df_fourier_subset.png" width="600">  
+- filter for the variance features of all domains (excluding covariance from time domain):
+  ```python
+  from braindecode_features import filter_df
+  subset_df = filter_df(
+      df=feature_df,
+      query='variance',
+      exact_match=True,
+      level_to_consider=0,  # 1
+  )
+  ```
+  <img src="feature_df_variance_subset.png" width="600">  
+- filter for features that were extracted at electrode locations that conain a 'C' in the sensor name (including bivariate features where one channel had a 'C' in its name):
+  ```python
+  from braindecode_features import filter_df
+  subset_df = filter_df(
+      df=feature_df,
+      query='C',
+      exact_match=False,
+      level_to_consider=2,
+  )
+  ```
+  <img src="feature_df_c_subset.png" width="600">  
+- filter for features that were extracted at frequency band 8-13Hz:
+  ```python
+  from braindecode_features import filter_df
+  subset_df = filter_df(
+      df=feature_df,
+      query='8-13',
+      exact_match=False,  # True
+      level_to_consider=None,  # 3
+  )
+  ```
+  <img src="feature_df_hz_subset.png" width="600">  
+In all cases, the filtering function preserves the entries in domain `Description` and concatenates the selection appropriately, such that `filter_df` can be called multiple times and that the resulting DataFrame is compatible with the further steps leading to decoding.
 
 ## What are the requirements?
 Running the code requires following libraries:
