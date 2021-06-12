@@ -26,7 +26,7 @@ The function will automatically extract all implemented features and return a fe
 
 ## What is the feature DataFrame?
 The feature DataFrame is the key data structure in this repository which looks as follows:  
-<img src="feature_df.png" width="600">  
+<img src="images/feature_df.png" width="600">  
 The DataFrame has a fairly complex explicit 4-level MultiIndex corresponding to feature domain, feature type, channel(s), and frequency band(s).  
 The first domain `Description` is a special case and does not hold any features but information required for decoding, i.e.  
 `Trial` – the trial the features were extracted from. It is equivalent to the number of datasets in the braindecode WindowsDataset,  
@@ -97,9 +97,9 @@ Features implemented with this domain are:
 Inspired by the [cropped decoding](https://braindecode.org/auto_examples/plot_bcic_iv_2a_moabb_cropped.html) of the [neural networks implemented in braindecode](https://braindecode.org/api.html#models) signals were split into compute windows. In the feature DataFrame, they are listed as a separate column and there are multiple ways to handle them:
 - Interpret every window as an independent example. This corresponds to the standard feature DataFrame. Note that this will require combination of window predictions in the end again to obtain trial predictions.
 - Aggregate the features over all windows of a trial. Note that this eliminates all time-resolved information.
-  <img src="avg_feature_df.png" width="600">  
+  <img src="images/avg_feature_df.png" width="600">  
 - Do none of the above and create giant feature vectors by appending all window features. Note that the window information is then moved from a single column to the MultiIndex. Also note that if there are a variable number of windows per trial, then the minimum number of windows of a trial has to be used for all trials to create feature vectors of the same length required for the decoders.  
-  <img src="feature_df_long_vectors.png" width="600">  
+  <img src="images/feature_df_long_vectors.png" width="600">  
 All three options can easily be used as demonstrated in the code cell below:
 ```python
 from braindecode_features import prepare_features
@@ -113,7 +113,7 @@ The function will transform the feature DataFrame into X, y, and groups that are
 
 ## What are the feature names?
 The feature names are generated during extraction of features and used as MultiIndex in the feature DataFrame. When preparing features for decoding, they are converted into a new DataFrame with the columns Domain, Feature, (Window,) Channel, and Frequency which looks as follows.  
-<img src="feature_names.png" width="600">  
+<img src="images/feature_names.png" width="600">  
 The feature names allow for detailed post-hoc analysis, since they hold all required information to backtrack a feature performing well during decoding to its origin.
 
 
@@ -129,7 +129,7 @@ braindecode-features offers a simple way to filter the potentially huge feature 
       level_to_consider=None,  # 0
   )
   ```
-  <img src="feature_df_fourier_subset.png" width="600">  
+  <img src="images/feature_df_fourier_subset.png" width="600">  
 - filter for the variance features of all domains (excluding covariance from time domain):
   ```python
   from braindecode_features import filter_df
@@ -137,7 +137,7 @@ braindecode-features offers a simple way to filter the potentially huge feature 
       df=feature_df,
       query='variance',
       exact_match=True,
-      level_to_consider=0,  # 1
+      level_to_consider=1,
   )
   ```
   <img src="feature_df_variance_subset.png" width="600">  
@@ -151,7 +151,7 @@ braindecode-features offers a simple way to filter the potentially huge feature 
       level_to_consider=2,
   )
   ```
-  <img src="feature_df_c_subset.png" width="600">  
+  <img src="images/feature_df_c_subset.png" width="600">  
 - filter for features that were extracted at frequency band 8-13Hz:
   ```python
   from braindecode_features import filter_df
@@ -162,7 +162,7 @@ braindecode-features offers a simple way to filter the potentially huge feature 
       level_to_consider=None,  # 3
   )
   ```
-  <img src="feature_df_hz_subset.png" width="600">  
+  <img src="images/feature_df_hz_subset.png" width="600">  
 In all cases, the filtering function preserves the entries in domain `Description` and concatenates the selection appropriately, such that `filter_df` can be called multiple times and that the resulting DataFrame is compatible with the further steps leading to decoding.
 
 ## What are the requirements?
