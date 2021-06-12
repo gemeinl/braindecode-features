@@ -65,9 +65,8 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
     # if available add target, trial and window to selection 
     info_cols = []
     for info_col in ['Trial', 'Window', 'Target']:
-        if info_col in df:
-            info_col = _find_col(df.columns, info_col)
-            info_cols.append(info_col)
+        info_col = _find_col(df.columns, info_col)
+        info_cols.append(info_col)
     # go through all the levels in the multiindex and check whether the query
     # matches any value exactly or just contains it
     for i in levels:

@@ -208,9 +208,9 @@ def _examples_from_windows(df):
     # Check if we have variable length trials. If so, determine the minimum
     # number of windows of the shortest trial and use this number of windows
     # from every trial.
-    n_windows_per_trial = df.groupby('Trial').tail(1)['Window']
+    n_windows_per_trial = df.groupby(trial_col).tail(1)[window_col]
     variable_length_trials = len(n_windows_per_trial.unique()) > 1
-    n_windows_min = df.groupby('Trial').tail(1)['Window'].min()
+    n_windows_min = df.groupby(trial_col).tail(1)[window_col].min()
     if variable_length_trials:
         log.warning(f'Found inconsistent numbers of windows. '
                     f'Will use the minimum number of windows ({n_windows_min+1}) '
