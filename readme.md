@@ -47,7 +47,7 @@ Features implemented with this domain are:
 - cross_frequency_coupling
 
 ### [Fourier](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/fourier.py#L35)  
-Unfiltered signals are taken by the Fourier extraction routine. It transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks the resulting bins corresponding to the specified frequency bands. The shape that is handed to the fourier feature extraction functions is `(n_bins x n_windows x n_channels x n_times)`.  
+Unfiltered signals are taken by the Fourier extraction routine. It transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks the resulting bins corresponding to the specified frequency bands. The shape that is handed to the fourier feature extraction functions is `(n_windows x n_channels x n_fourier_coefficients)`.  
 Features implemented with this domain are:  
 - maximum
 - mean
@@ -117,7 +117,7 @@ The feature names are generated during extraction of features and used as MultiI
 The feature names allow for detailed post-hoc analysis, since they hold all required information to backtrack a feature performing well during decoding to its origin.
 
 
-## How can I pick a specific subset of features for decoing?
+## How can I pick a specific subset of features for decoding?
 braindecode-features offers a simple way to filter the potentially huge feature DataFrame to a subset of features as demonstrated below:
 - filter for features that were extracted from the Fourier domain:
   ```python
