@@ -10,7 +10,7 @@ from braindecode_features.utils import generate_feature_names
 log = logging.getLogger(__name__)
 
 
-def get_connectivity_feature_functions():
+def get_hilbert_feature_functions():
     """Get feature functions of the connectivity domain."""
     # Connectivity
     # TODO: add autocorrelation
@@ -19,8 +19,7 @@ def get_connectivity_feature_functions():
         #assert X.ndim == 4, X.shape
         #X = np.squeeze(X, axis=0)
         # remove empty first dimension
-        analytical_signal = hilbert(X, axis=-1)
-        instantatneous_phases = np.unwrap(np.angle(analytical_signal), axis=-1)
+        instantatneous_phases = np.unwrap(np.angle(X), axis=-1)
         plvs = []
         for ch_i, ch_j in zip(*np.triu_indices(X.shape[-2], k=1)):
             plv = _phase_locking_value(
@@ -44,7 +43,7 @@ def get_connectivity_feature_functions():
     return funcs
 
 
-def extract_connectivity_features(windows_ds, frequency_bands, fu):
+def extract_hilbert_features(windows_ds, frequency_bands, fu):
     """Extract connectivity features from pairs of signals in time domain. 
     Therefore, iterate all the datasets. Use windows of prefiltered band signals 
     and compute features. 
@@ -75,10 +74,11 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
                              if ch.endswith('-'.join([str(b) for b in frequency_band]))]
             # get the band data
             data = ds.windows.get_data(picks=band_channels)    
+            analytical_signal = hilbert(data, axis=-1)
             # add empty fourth dimension representing a single frequency band
             #data = data[None, :]
             # call all features in the union
-            f.append(fu.fit_transform(data).astype(np.float32))   
+            f.append(fu.fit_transform(analytical_signal).astype(np.float32))   
             # first, remove frequency info from channel names, then generate feature names
             names = generate_feature_names(fu, [ch.split('_')[0] for ch in band_channels])
             # manually re-add the frequency band
@@ -89,7 +89,7 @@ def extract_connectivity_features(windows_ds, frequency_bands, fu):
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
         feature_names = np.concatenate(feature_names, axis=-1)
-        feature_names = ['__'.join(['Connectivity', name]) for name in feature_names]
+        feature_names = ['__'.join(['Hilbert', name]) for name in feature_names]
         connectivity_df.append(
             pd.concat([
                 # add dataset_id to be able to backtrack

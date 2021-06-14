@@ -9,7 +9,7 @@ from braindecode_features.utils import generate_feature_names, _get_unfiltered_c
 log = logging.getLogger(__name__)
 
 
-def get_ft_feature_functions():
+def get_fourier_feature_functions():
     """Get feature functions of the Fourier domain."""
     # DFT
     # TODO: add spectral entropy?
@@ -32,7 +32,7 @@ def get_ft_feature_functions():
     return funcs
 
 
-def extract_ft_features(windows_ds, frequency_bands, fu):
+def extract_fourier_features(windows_ds, frequency_bands, fu):
     """Extract fourier transform features. Therefore, iterate all the datasets. 
     Use windows, apply Fourier transform and compute features. 
     
@@ -84,7 +84,7 @@ def extract_ft_features(windows_ds, frequency_bands, fu):
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
         feature_names = np.concatenate(feature_names, axis=-1)
-        feature_names = ['__'.join(['DFT', name]) for name in feature_names]
+        feature_names = ['__'.join(['Fourier', name]) for name in feature_names]
         dft_df.append(
             pd.concat([
                 # add dataset_id to be able to backtrack

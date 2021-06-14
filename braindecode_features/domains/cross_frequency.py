@@ -16,8 +16,8 @@ def get_cross_frequency_feature_functions():
     def cross_frequency_coupling(data1_n_data2):
         # loosely following https://mark-kramer.github.io/Case-Studies-Python/07.html
         data1, data2 = data1_n_data2
-        instantaneous_phases = np.angle(hilbert(data1, axis=-1))
-        amplitudes = np.abs(hilbert(data2, axis=-1))
+        instantaneous_phases = np.angle(data1)
+        amplitudes = np.abs(data2)
         phase_bins = np.arange(-np.pi, np.pi, 0.1)
         a_mean = []
         for i in range(phase_bins.size-1):
@@ -72,9 +72,11 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu):
             band2 = '-'.join([str(band2[0]), str(band2[1])])
             chs2 = [ch for ch in ds.windows.ch_names if ch.endswith(band2)]
             data2 = ds.windows.get_data(picks=chs2)
-            data = np.array([data1, data2])
+            instantaneous_phases1 = np.angle(hilbert(data1, axis=-1))
+            instantaneous_phases2 = np.angle(hilbert(data2, axis=-1))
+            instantaneous_phases = np.array([instantaneous_phases1, instantaneous_phases2])
             # call all features in the union
-            f.append(fu.fit_transform(data).astype(np.float32))
+            f.append(fu.fit_transform(instantaneous_phases).astype(np.float32))
             # first, manually add the frequency bands to the used channel names
             # then generate feature names
             feature_names.append(generate_feature_names(

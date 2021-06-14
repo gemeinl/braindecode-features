@@ -11,7 +11,7 @@ from braindecode_features.utils import generate_feature_names, _get_unfiltered_c
 log = logging.getLogger(__name__)
 
 
-def get_cwt_feature_functions():
+def get_wavelet_feature_functions():
     """Get feature functions of the wavelet domain."""
     # CWT
     def bounded_variation(X):
@@ -88,7 +88,7 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu):
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
         feature_names = np.concatenate(feature_names, axis=-1)
-        feature_names = ['__'.join(['CWT', name]) for name in feature_names]
+        feature_names = ['__'.join(['Wavelet', name]) for name in feature_names]
         cwt_df.append(
             pd.concat([
                 # add dataset_id to be able to backtrack
