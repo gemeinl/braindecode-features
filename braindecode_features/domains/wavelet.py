@@ -5,7 +5,7 @@ import pandas as pd
 
 import pywt
 
-from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _concat_ds_and_window
+from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _concat_ds_and_window, _check_df_consistency
 
 
 log = logging.getLogger(__name__)
@@ -119,9 +119,7 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu, windowing_fn):
     series = ((cwt_df['i_window_in_trial'] == 0).cumsum() - 1)
     series.name = 'i_trial'
     cwt_df = pd.concat([series, cwt_df], axis=1)
-    assert not pd.isna(cwt_df.values).any()
-    assert not pd.isnull(cwt_df.values).any()
-    assert np.abs(cwt_df.values).max() < np.inf
+    _check_df_consistency(df=cwt_df)
     return cwt_df
 
 

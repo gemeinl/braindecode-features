@@ -183,11 +183,11 @@ def get_feature_functions(domain=None):
         Mapping of feature domain to feature extraction functions.
     """
     feature_functions = {
-        'Hilbert': [MyFunctionTransformer(f) for f in get_hilbert_feature_functions()],
-        'Cross-frequency': [MyFunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
-        'Wavelet': [MyFunctionTransformer(f) for f in get_wavelet_feature_functions()],
-        'Fourier': [MyFunctionTransformer(f) for f in get_fourier_feature_functions()],
         'Time': [MyFunctionTransformer(f) for f in get_time_feature_functions()],
+        'Fourier': [MyFunctionTransformer(f) for f in get_fourier_feature_functions()],
+        'Hilbert': [MyFunctionTransformer(f) for f in get_hilbert_feature_functions()],
+        'Wavelet': [MyFunctionTransformer(f) for f in get_wavelet_feature_functions()],
+        'Cross-frequency': [MyFunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
     }
     if domain is not None:
         feature_functions = {domain: feature_functions[domain]}
@@ -208,11 +208,11 @@ def get_extraction_routines(domain=None):
         Mapping of feature domain to extraction routines.
     """
     extraction_routines = {
-        'Hilbert': extract_hilbert_features,
-        'Cross-frequency': extract_cross_frequency_features,
-        'Wavelet': extract_wavelet_features,
-        'Fourier': extract_fourier_features,
         'Time': extract_time_features,
+        'Fourier': extract_fourier_features,
+        'Hilbert': extract_hilbert_features,
+        'Wavelet': extract_wavelet_features,
+        'Cross-frequency': extract_cross_frequency_features,
     }
     if domain is not None:
         extraction_routines = {domain: extraction_routines[domain]}

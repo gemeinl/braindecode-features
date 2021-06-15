@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.signal import hilbert
 
-from braindecode_features.utils import _generate_feature_names, _filter, _concat_ds_and_window
+from braindecode_features.utils import _generate_feature_names, _filter, _concat_ds_and_window, _check_df_consistency
 
 
 log = logging.getLogger(__name__)
@@ -122,7 +122,5 @@ def extract_hilbert_features(windows_ds, frequency_bands, fu, windowing_fn=None)
     series = ((connectivity_df['i_window_in_trial'] == 0).cumsum() - 1)
     series.name = 'i_trial'
     connectivity_df = pd.concat([series, connectivity_df], axis=1)
-    assert not pd.isna(connectivity_df.values).any()
-    assert not pd.isnull(connectivity_df.values).any()
-    assert np.abs(connectivity_df.values).max() < np.inf
+    _check_df_consistency(df=connectivity_df)
     return connectivity_df

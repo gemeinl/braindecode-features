@@ -239,3 +239,9 @@ def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
         windows_ds=concat_ds,
         windowing_fn=windowing_fn,
     )
+
+
+def _check_df_consistency(df):
+    assert not pd.isna(df.values).any()
+    assert not pd.isnull(df.values).any()
+    assert np.abs(df.values).max() < np.inf

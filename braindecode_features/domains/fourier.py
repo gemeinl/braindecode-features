@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _window
+from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _window, _check_df_consistency
 
 
 log = logging.getLogger(__name__)
@@ -107,7 +107,5 @@ def extract_fourier_features(windows_ds, frequency_bands, fu, windowing_fn):
     series = ((dft_df['i_window_in_trial'] == 0).cumsum() - 1)
     series.name = 'i_trial'
     dft_df = pd.concat([series, dft_df], axis=1)
-    assert not pd.isna(dft_df.values).any()
-    assert not pd.isnull(dft_df.values).any()
-    assert np.abs(dft_df.values).max() < np.inf
+    _check_df_consistency(df=dft_df)
     return dft_df
