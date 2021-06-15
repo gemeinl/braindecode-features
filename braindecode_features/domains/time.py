@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from braindecode_features.utils import generate_feature_names
+from braindecode_features.utils import _generate_feature_names, _filter_and_window
 
 
 log = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ def get_time_feature_functions():
     return funcs
 
 
-def extract_time_features(windows_ds, frequency_bands, fu):
+def extract_time_features(windows_ds, frequency_bands, fu, windowing_fn):
     """Extract features in time domain. Therefore, iterate all the datasets. Use
     windows of prefiltered band signals and compute features.
     
@@ -111,16 +111,23 @@ def extract_time_features(windows_ds, frequency_bands, fu):
         The time domain feature DataFrame including target information and feature 
         name annotations.
     """
+    windows_ds = _filter_and_window(
+        windows_ds=windows_ds,
+        frequency_bands=frequency_bands,
+        windowing_fn=windowing_fn,
+    )
+    log.info('Extracting ...')
+    frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
+    all_band_channels = []
+    for frequency_band in frequency_bands_str:
+        # pick all channels corresponding to a single frequency band
+        all_band_channels.append([ch for ch in windows_ds.datasets[0].windows.ch_names 
+                                  if ch.endswith(frequency_band)])
     time_df = []
     for ds_i, ds in enumerate(windows_ds.datasets):
         # for time domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]    
         f, feature_names = [], []
-        all_band_channels = []
-        for frequency_band in frequency_bands:
-            # pick all channels corresponding to a single frequency band
-            all_band_channels.append([ch for ch in ds.windows.ch_names 
-                             if ch.endswith('-'.join([str(b) for b in frequency_band]))])
         # TODO: do all bands at the same time?
         # get the band data
         all_data = np.array([ds.windows.get_data(picks=band_channels) 
@@ -129,20 +136,17 @@ def extract_time_features(windows_ds, frequency_bands, fu):
         #log.info(f"time all_data after union shape {f[-1].shape}")
         log.debug(f'fu transformer list {len(fu.transformer_list)}')
 
-        for data, band_channels, frequency_band in zip(all_data, all_band_channels, frequency_bands):
-            log.debug(f'time before union {data.shape}')
+        for data, band_channels, frequency_band in zip(all_data, all_band_channels, frequency_bands_str):
+            log.debug(f'time in {frequency_band} before union {data.shape}')
             # call all features in the union
             f.append(fu.fit_transform(data).astype(np.float32))
             # first, remove frequency info from channel names, then generate feature names
-            names = generate_feature_names(fu, [ch.split('_')[0] for ch in band_channels])
+            names = _generate_feature_names(fu, [ch.split('_')[0] for ch in band_channels])
             # manually re-add the frequency band
-            feature_names.append(['__'.join([
-                name,
-                '-'.join([str(b) for b in frequency_band]),
-                ]) for name in names])
+            feature_names.append(['__'.join([name, frequency_band]) for name in names])
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
-        log.debug(f'f shape {f.shape}')
+        log.debug(f'feature shape {f.shape}')
         feature_names = np.concatenate(feature_names, axis=-1)
         feature_names = ['__'.join(['Time', name]) for name in feature_names]
         time_df.append(

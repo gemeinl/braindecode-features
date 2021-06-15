@@ -1,10 +1,20 @@
 import re
+import logging
+from copy import deepcopy
+from functools import partial
 
 import numpy as np
 import pandas as pd
 
+from braindecode.datautil.windowers import create_windows_from_events, create_fixed_length_windows
+from braindecode.datautil.preprocess import Preprocessor, preprocess, filterbank
+from braindecode.datasets.base import BaseDataset, BaseConcatDataset
 
-def generate_feature_names(fu, ch_names):
+
+log = logging.getLogger(__name__)
+
+
+def _generate_feature_names(fu, ch_names):
     """From the feature names returned by the feature functions through the feature union,
     replace the unknown channels indicated by ids (ch0 or ch0-ch13) with their actual names.
     
@@ -112,8 +122,9 @@ def drop_window(df, window_i):
 
 
 def _get_unfiltered_chs(windows_ds, frequency_bands):
+    windows_or_raw = 'windows' if hasattr(windows_ds, 'windows') else 'raw'
     orig_chs = []
-    for ch in windows_ds.windows.ch_names:
+    for ch in getattr(windows_ds, windows_or_raw).ch_names:
         if any([ch.endswith('-'.join([str(low), str(high)])) for (low, high) in frequency_bands]):
             continue
         else:
@@ -150,3 +161,81 @@ def _find_col(columns, hint):
     assert len(found_col) == 1, (
         f'Please be more precise, found: {found_col}')
     return found_col[0]
+
+
+def _filter_and_window(windows_ds, frequency_bands, windowing_fn):
+    return _window(
+        windows_ds=_filter(
+            windows_ds=windows_ds,
+            frequency_bands=frequency_bands,
+        ),
+        windowing_fn=windowing_fn,
+    )
+
+
+def _filter(windows_ds, frequency_bands):
+    windows_or_raws = 'windows' if hasattr(windows_ds.datasets[0], 'windows') else 'raw'
+    # check whether filtered signals already exist
+    frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
+    all_band_channels = []
+    for frequency_band in frequency_bands_str:
+        # pick all channels corresponding to a single frequency band
+        all_band_channels.append([ch for ch in getattr(windows_ds.datasets[0], windows_or_raws).ch_names 
+                                  if ch.endswith(frequency_band)])
+    requires_filtering = not all(all_band_channels)
+    if requires_filtering:
+        log.debug('Filtering ...')
+        preprocess(
+            concat_ds=windows_ds,
+            preprocessors=[
+                Preprocessor(
+                    apply_on_array=False,
+                    fn=filterbank, 
+                    frequency_bands=sorted(frequency_bands, key=lambda b: b[0]), 
+                    drop_original_signals=False, 
+                )
+            ],
+        )
+    return windows_ds
+
+        
+def _window(windows_ds, windowing_fn):
+    windows_or_raws = 'windows' if hasattr(windows_ds.datasets[0], 'windows') else 'raw'
+    if windows_or_raws == 'raw':
+        log.debug('Windowing ...')
+        windows_ds = windowing_fn(
+            concat_ds=windows_ds,
+        )
+    log.debug(f'got {len(windows_ds)} windows')
+    return windows_ds
+
+
+def _initialize_windowing_fn(has_events, windowing_params):
+    if has_events:
+        windowing_fn = partial(
+            create_windows_from_events,
+            **windowing_params,
+        )
+    else:
+        windowing_fn = partial(
+            create_fixed_length_windows,
+            **windowing_params,
+        )
+    return windowing_fn
+
+
+def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
+    raw = ds.raw.copy()
+    raw = raw.pick_channels(band_channels)
+    raw._data = data
+    concat_ds = BaseConcatDataset([
+        BaseDataset(
+            raw=raw, 
+            description=ds.description,
+            target_name=ds.target_name,
+        )
+    ])
+    return _window(
+        windows_ds=concat_ds,
+        windowing_fn=windowing_fn,
+    )

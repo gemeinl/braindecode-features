@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy.signal import hilbert
 
-from braindecode_features.utils import generate_feature_names
+from braindecode_features.utils import _generate_feature_names, _filter, _concat_ds_and_window
 
 
 log = logging.getLogger(__name__)
@@ -39,11 +39,10 @@ def get_hilbert_feature_functions():
 
     
     funcs = [phase_locking_value]
-    #return [MyFunctionTransformer(func) for func in funcs]
     return funcs
 
 
-def extract_hilbert_features(windows_ds, frequency_bands, fu):
+def extract_hilbert_features(windows_ds, frequency_bands, fu, windowing_fn=None):
     """Extract connectivity features from pairs of signals in time domain. 
     Therefore, iterate all the datasets. Use windows of prefiltered band signals 
     and compute features. 
@@ -63,6 +62,11 @@ def extract_hilbert_features(windows_ds, frequency_bands, fu):
         The connectivity domain feature DataFrame including target information and feature 
         name annotations.
     """
+    windows_ds = _filter(
+        windows_ds=windows_ds,
+        frequency_bands=frequency_bands,
+    )
+    log.info('Extracting ...')
     connectivity_df = []
     for ds_i, ds in enumerate(windows_ds.datasets):
         # for connectivity domain features only consider the signals filtered in time domain
@@ -70,17 +74,28 @@ def extract_hilbert_features(windows_ds, frequency_bands, fu):
         f, feature_names = [], []
         for frequency_band in frequency_bands:
             # pick all channels corresponding to a single frequency band
-            band_channels = [ch for ch in ds.windows.ch_names 
+            band_channels = [ch for ch in ds.raw.ch_names 
                              if ch.endswith('-'.join([str(b) for b in frequency_band]))]
             # get the band data
-            data = ds.windows.get_data(picks=band_channels)    
+            data = ds.raw.get_data(picks=band_channels)   
+            log.debug('Transforming ...')
+            # TODO: move to function that filters all signals to all frequency bands and cuts windows prior to the loop
             analytical_signal = hilbert(data, axis=-1)
+            # create a fake concat_base_ds and apply windowing here
+            windows_ds = _concat_ds_and_window(
+                ds=ds,
+                data=analytical_signal,
+                windowing_fn=windowing_fn,
+                band_channels=band_channels,
+            )
+            analytical_signal_windows = windows_ds.datasets[0].windows.get_data(picks=band_channels)
             # add empty fourth dimension representing a single frequency band
             #data = data[None, :]
+            log.debug(f'hilbert in {frequency_band} before union {analytical_signal_windows.shape}')
             # call all features in the union
-            f.append(fu.fit_transform(analytical_signal).astype(np.float32))   
+            f.append(fu.fit_transform(analytical_signal_windows).astype(np.float32))   
             # first, remove frequency info from channel names, then generate feature names
-            names = generate_feature_names(fu, [ch.split('_')[0] for ch in band_channels])
+            names = _generate_feature_names(fu, [ch.split('_')[0] for ch in band_channels])
             # manually re-add the frequency band
             feature_names.append(['__'.join([
                 name,
@@ -88,6 +103,7 @@ def extract_hilbert_features(windows_ds, frequency_bands, fu):
                 ]) for name in names])
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
+        log.debug(f'feature shape {f.shape}')
         feature_names = np.concatenate(feature_names, axis=-1)
         feature_names = ['__'.join(['Hilbert', name]) for name in feature_names]
         connectivity_df.append(
@@ -95,7 +111,7 @@ def extract_hilbert_features(windows_ds, frequency_bands, fu):
                 # add dataset_id to be able to backtrack
                 # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
                 # add trial and target info to features
-                ds.windows.metadata[['i_window_in_trial', 'target']], 
+                windows_ds.datasets[0].windows.metadata[['i_window_in_trial', 'target']], 
                 # create a dataframe of feature values and feature names
                 pd.DataFrame(f, columns=feature_names)
             ], axis=1)

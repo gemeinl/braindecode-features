@@ -6,13 +6,14 @@ from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
 
 from braindecode_features.domains import *
+from braindecode_features.utils import _initialize_windowing_fn
 
 
 log = logging.getLogger(__name__)
 
 
 def extract_windows_ds_features(
-    windows_ds, frequency_bands, params=None, domains=None, n_jobs=1):
+    windows_ds, frequency_bands, windowing_params=None, params=None, domains=None, n_jobs=1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
@@ -38,6 +39,9 @@ def extract_windows_ds_features(
         extraction_routines = {domain: extraction_routines[domain] for domain in domains}
     if params is not None:
         params = _params_to_domain_params(params=params)
+    has_events = len(windows_ds.datasets[0].raw.annotations)
+    windowing_fn = _initialize_windowing_fn(has_events, windowing_params)  # TODO:
+    log.debug(f'got {len(windows_ds.datasets)} datasets')
     domain_dfs = {}
     # extract features by domain, since each domain has it's very own routine
     for domain in extraction_routines.keys():
@@ -58,6 +62,7 @@ def extract_windows_ds_features(
             windows_ds=windows_ds,
             frequency_bands=frequency_bands,
             fu=fu,
+            windowing_fn=windowing_fn,
         )
     # concatenate domain dfs and make final df pretty
     df = _finalize_df(

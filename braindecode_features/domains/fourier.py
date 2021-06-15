@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from braindecode_features.utils import generate_feature_names, _get_unfiltered_chs
+from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _window
 
 
 log = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ def get_fourier_feature_functions():
     return funcs
 
 
-def extract_fourier_features(windows_ds, frequency_bands, fu):
+def extract_fourier_features(windows_ds, frequency_bands, fu, windowing_fn):
     """Extract fourier transform features. Therefore, iterate all the datasets. 
     Use windows, apply Fourier transform and compute features. 
     
@@ -51,6 +51,11 @@ def extract_fourier_features(windows_ds, frequency_bands, fu):
         The Fourier domain feature DataFrame including target information and feature 
         name annotations.
     """
+    windows_ds = _window(
+        windows_ds=windows_ds,
+        windowing_fn=windowing_fn,
+    )
+    log.info('Extracting ...')
     dft_df = []
     for ds_i, ds in enumerate(windows_ds.datasets):
         sfreq = ds.windows.info['sfreq']
@@ -73,16 +78,17 @@ def extract_fourier_features(windows_ds, frequency_bands, fu):
             all_data.append(transform[:,:,l_id:h_id+1])
         
         for data, (l_freq, h_freq) in zip(all_data, frequency_bands):
-            log.debug(f'dft before union {data.shape}')
+            log.debug(f'dft in {l_freq} – {h_freq} before union {data.shape}')
             # call all features in the union 
             f.append(fu.fit_transform(data).astype(np.float32))
             # first, manually add the frequency band to the used channel names
             # then generate feature names
-            feature_names.append(generate_feature_names(
+            feature_names.append(_generate_feature_names(
                 fu, ['__'.join([ch, '-'.join([str(l_freq), str(h_freq)])]) for ch in sensors]
             ))
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
+        log.debug(f'feature shape {f.shape}')
         feature_names = np.concatenate(feature_names, axis=-1)
         feature_names = ['__'.join(['Fourier', name]) for name in feature_names]
         dft_df.append(
