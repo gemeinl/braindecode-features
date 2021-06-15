@@ -5,14 +5,14 @@ It adds extraction of features as well as convenience functions to run feature-b
 The purpose of this library is to facilitate the generation of strong feature-based baselines. 
 
 ## What does it do?
-braindecode-features offers a way to get from preprocessed data in the form of braindecode WindowsDatasets `(n_windows x n_channels x n_times)` to a feature representation `(n_windows x n_features)`.  
+braindecode-features offers a way to get from preprocessed data in the form of braindecode BaseDatasets `(n_channels x n_times)` to a feature representation `(n_windows x n_features)`.  
 It implements several extraction routines suitable to extract features that cover different properties of EEG signals.  
 This includes univariate and bivariate time domain features, features based on Fourier, Hilbert, and wavelet transform, as well as cross-frequency features.
 
 ## How does it work?
 Basic usage of braindecode-features is straightforward and demonstrated in the code cell below:
 ```python
-# Assume we have data given as a braindecode WindowsDataset
+# Assume we have data given as a braindecode BaseDataset
 # We define a number of frequency bands which we are interested in
 frequency_bands = [(0, 4), (4, 8), (8, 13), (13, 30), (30, 50)]
 # We extract the features
@@ -36,18 +36,18 @@ In the following columns, all extracted features are stored.
 
 ## Why are there different domains and what are they?  
 The domains differ in the way they filter the data, and also in the way they pass data to the feature extraction functions.
-### [Connectivity](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/connectivity.py#L47)  
-Unfiltered signals are passed to the connectivity extraction routine. It processes the data using the Hilbert transform. The shape that is passed to the connectivity feature extraction functions is `(n_windows x n_channels x n_times)`.  
+### [Hilbert](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/hilbert.py)  
+The Hilbert extraction routine filters the data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). It processes the data using the Hilbert transform and cuts windows. Features are computed one dataset at a time and the shape that is passed to the hilbert feature extraction functions is `(n_windows x n_channels x n_times)`.  
 Features implemented with this domain are:  
 - phase_locking_values
 
-### [Cross-frequency](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/cross_frequency.py#L36)  
-Filtered signals are passed to the cross-frequency extraction routine. It transforms the data from two different frequency bands using [Hilbert transform](https://en.wikipedia.org/wiki/Hilbert_transform). The shape that is passed to the cross-frequency feature extraction functions is `(2 x n_windows x n_channels x n_times)`.  
+### [Cross-frequency](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/cross_frequency.py)  
+The cross-frequency extraction routine filters the data in time domain to the specified frequency bands (does not filter again, if another domain already filteres in time domain). It transforms the data from two different frequency bands using [Hilbert transform](https://en.wikipedia.org/wiki/Hilbert_transform) and cuts windows. Features are computed one dataset at a time and the shape that is passed to the cross-frequency feature extraction functions is `(2 x n_windows x n_channels x n_times)`.  
 Features implemented with this domain are:  
 - cross_frequency_coupling
 
-### [Fourier](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/fourier.py#L35)  
-Unfiltered signals are passed to the Fourier extraction routine. It transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks the resulting bins corresponding to the specified frequency bands. The shape that is passed to the fourier feature extraction functions is `(n_windows x n_channels x n_fourier_coefficients)`.  
+### [Fourier](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/fourier.py)  
+The Fourier extraction routine takes the original unfiltered signals. It cuts windows, transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks the resulting bins corresponding to the specified frequency bands. Features are computed one dataset at a time and the shape that is passed to the fourier feature extraction functions is `(n_windows x n_channels x n_fourier_coefficients)`.  
 Features implemented with this domain are:  
 - maximum
 - mean
@@ -60,7 +60,7 @@ Features implemented with this domain are:
 - variance
 
 ### [Time](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/time.py#L95)  
-Filtered signals are passed to the time extraction routine. The shape that is passed to the time feature extraction functions is `(n_windows x n_channels x n_times)`.  
+The time extraction routine filters the data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). It cuts windows. Features are computed one dataset at a time and the shape that is passed to the time feature extraction functions is `(n_windows x n_channels x n_times)`.  
 Features implemented with this domain are:  
 - covariance
 - energy
@@ -80,8 +80,8 @@ Features implemented with this domain are:
 - zero_crossings
 - zero_crossings_derivative
 
-### [Wavelet](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/wavelet.py#L40)  
-Unfiltered signals are passed to the wavelet extraction routine. It transforms the data using the [continuous wavelet transform](https://en.wikipedia.org/wiki/Continuous_wavelet_transform) at scales corresponding to pseudo frequency within the specified frequency bands. The number of scales depends on the width of the frequency band, such that the first dimension of the shape passed to wavelet feature extraction functions is flexible: `(n_scales x n_windows x n_channels x n_wavelet_coefficients)`.  
+### [Wavelet](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/wavelet.py)  
+The Fourier extraction routine takes the original unfiltered signals. It transforms the data using the [continuous wavelet transform](https://en.wikipedia.org/wiki/Continuous_wavelet_transform) at scales corresponding to pseudo frequency within the specified frequency bands. The number of scales depends on the width of the frequency band, such that the first dimension of the shape passed to wavelet feature extraction functions is flexible. It cuts windows. Features are computed one dataset at a time and the shaoe that is passed to the wavelet feature extraction functions is `(n_scales x n_windows x n_channels x n_wavelet_coefficients)`. Features are averaged over the different scales.  
 Features implemented with this domain are:  
 - bounded_variation
 - maximum
