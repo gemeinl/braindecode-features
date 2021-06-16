@@ -37,7 +37,7 @@ In the following columns, all extracted features are stored.
 ## Why are there different domains and what are they?  
 The domains differ in the way they filter the data, and also in the way they pass data to the feature extraction functions.
 ### [Time](https://github.com/gemeinl/braindecode-features/blob/04718dbe59c47f4034bcf65ff297456314b92ac3/braindecode_features/domains/time.py#L95)  
-The time extraction routine filters the data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). It cuts windows. Features are computed one dataset and frequency band at a time and the shape that is passed to the time feature extraction functions is `(n_windows x n_channels x n_times)`.  
+The time extraction routine filters the continuous data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). Afterwards it cuts windows. Features are computed one dataset and frequency band at a time and the shape that is passed to the time feature extraction functions is `(n_windows x n_channels x n_times)`.  
 Features implemented with this domain are:  
 - covariance
 - energy
@@ -58,7 +58,7 @@ Features implemented with this domain are:
 - zero_crossings_derivative
 
 ### [Fourier](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/fourier.py)  
-The Fourier extraction routine takes the original unfiltered signals. It cuts windows, transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks the resulting bins corresponding to the specified frequency bands. Features are computed one dataset and frequency band at a time and the shape that is passed to the fourier feature extraction functions is `(n_windows x n_channels x n_fourier_coefficients)`.  
+The Fourier extraction routine takes the original unfiltered continuous signals. It cuts windows, transforms the data using the [Fourier transform](https://en.wikipedia.org/wiki/Fourier_transform) and picks frequency bins corresponding to the specified frequency bands. The number of bins depends on the width of the frequency band, such that the last dimension of the shape passed to the Fourier feature extraction functions is flexible. Features are computed one dataset and frequency band at a time and the shape that is passed to the Fourier feature extraction functions is `(n_windows x n_channels x n_fourier_coefficients)`.  
 Features implemented with this domain are:  
 - maximum
 - mean
@@ -71,7 +71,7 @@ Features implemented with this domain are:
 - variance
 
 ### [Wavelet](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/wavelet.py)  
-The Fourier extraction routine takes the original unfiltered signals. It transforms the data using the [continuous wavelet transform](https://en.wikipedia.org/wiki/Continuous_wavelet_transform) with a [Morlet mother wavelet](https://en.wikipedia.org/wiki/Morlet_wavelet) at scales corresponding to pseudo frequency within the specified frequency bands. The number of scales depends on the width of the frequency band, such that the first dimension of the shape passed to wavelet feature extraction functions is flexible. It cuts windows. Features are computed one dataset and frequency band at a time and the shape that is passed to the wavelet feature extraction functions is `(n_scales x n_windows x n_channels x n_wavelet_coefficients)`. Features are afterwards averaged over the dimension of scales.  
+The Fourier extraction routine takes the original unfiltered continuous signals. It transforms the data using the [continuous wavelet transform](https://en.wikipedia.org/wiki/Continuous_wavelet_transform) with a [Morlet mother wavelet](https://en.wikipedia.org/wiki/Morlet_wavelet) at scales corresponding to pseudo frequencies (with stepwidth 1) within the specified frequency bands. The number of scales depends on the width of the frequency band, such that the first dimension of the shape passed to wavelet feature extraction functions is flexible. Afterwards it cuts windows. Features are computed one dataset and frequency band at a time and the shape that is passed to the wavelet feature extraction functions is `(n_scales x n_windows x n_channels x n_wavelet_coefficients)`. Features are afterwards averaged over the dimension of scales.  
 Features implemented with this domain are:  
 - bounded_variation
 - maximum
@@ -84,12 +84,12 @@ Features implemented with this domain are:
 - variance
 
 ### [Hilbert](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/hilbert.py)  
-The Hilbert extraction routine filters the data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). It processes the data using the Hilbert transform and cuts windows. Features are computed one dataset and one frequency band at a time and the shape that is passed to the hilbert feature extraction functions is `(n_windows x n_channels x n_times)`.  
+The Hilbert extraction routine filters the continuous data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). It processes the data using the Hilbert transform and cuts windows. Features are computed one dataset and one frequency band at a time and the shape that is passed to the hilbert feature extraction functions is `(n_windows x n_channels x n_times)`.  
 Features implemented with this domain are:  
 - phase_locking_values
 
 ### [Cross-frequency](https://github.com/gemeinl/braindecode-features/blob/master/braindecode_features/domains/cross_frequency.py)  
-The cross-frequency extraction routine filters the data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). It transforms the data of two different frequency bands using [Hilbert transform](https://en.wikipedia.org/wiki/Hilbert_transform) and cuts windows. Features are computed one dataset at a time and the shape that is passed to the cross-frequency feature extraction functions is `(2 x n_windows x n_channels x n_times)`.  
+The cross-frequency extraction routine filters the continuous data in time domain to the specified frequency bands (does not filter again, if another domain already filtered in time domain). It transforms the data of two different frequency bands using [Hilbert transform](https://en.wikipedia.org/wiki/Hilbert_transform) and cuts windows. Features are computed one dataset at a time and the shape that is passed to the cross-frequency feature extraction functions is `(2 x n_windows x n_channels x n_times)`.  
 Features implemented with this domain are:  
 - cross_frequency_coupling
 
