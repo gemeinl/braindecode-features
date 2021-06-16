@@ -37,14 +37,14 @@ def get_wavelet_feature_functions():
     return funcs
 
 
-def extract_wavelet_features(windows_ds, frequency_bands, fu, windowing_fn):
+def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
     """Extract wavelet transform features. Therefore, iterate all the datasets. 
     Use windows of unfiltered signals, apply continuous wavelet transform and 
     compute features. 
     
     Parameters
     ----------
-    windows_ds: BaseConcatDataset of WindowsDataset
+    concat_ds: BaseConcatDataset of BaseDatasets
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple)
         A list of frequency bands of prefiltered signals.
@@ -62,7 +62,7 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu, windowing_fn):
     central_band = False
     step_width = 1
     cwt_df = []
-    for ds_i, ds in enumerate(windows_ds.datasets):
+    for ds_i, ds in enumerate(concat_ds.datasets):
         sfreq = ds.raw.info['sfreq']
         # for cwt features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)

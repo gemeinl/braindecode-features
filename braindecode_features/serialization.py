@@ -28,9 +28,9 @@ def save_features(df, out_path):
         feats.to_hdf(os.path.join(out_path, f'{trial}.h5'), 'data')
         
         
-def read_features(path, agg_func=None, columns_as_json=False, n_jobs=1):
+def read_features(path, agg_func=None, n_jobs=1):
     """Read the features of all 'h5' files in 'path'. Optionally aggregates
-    features by trials and formats the output columns as JSON.
+    features by trials.
 
     Parameters
     ----------
@@ -39,8 +39,6 @@ def read_features(path, agg_func=None, columns_as_json=False, n_jobs=1):
     agg_func: None | str
         Aggregation function supported by `pd.DataFrame.agg()` used to
         optionally aggregate features by trials.
-    columns_as_json: bool
-        Whether to format the columns of the output DataFrame as JSON.
     n_jobs: int
         Number of workers to load files in parallel.
         
@@ -57,8 +55,6 @@ def read_features(path, agg_func=None, columns_as_json=False, n_jobs=1):
     )
     dfs = Parallel(n_jobs=n_jobs)(delayed(_read_and_aggregate)(p, agg_func) for p in file_paths)
     dfs = pd.concat(dfs).reset_index(drop=True)
-    if isinstance(dfs.columns, pd.MultiIndex) and columns_as_json:
-        dfs.columns = multiindex_to_json(dfs.columns)
     return dfs
 
 

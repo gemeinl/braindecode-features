@@ -42,14 +42,14 @@ def get_hilbert_feature_functions():
     return funcs
 
 
-def extract_hilbert_features(windows_ds, frequency_bands, fu, windowing_fn=None):
+def extract_hilbert_features(concat_ds, frequency_bands, fu, windowing_fn=None):
     """Extract connectivity features from pairs of signals in time domain. 
     Therefore, iterate all the datasets. Use windows of prefiltered band signals 
     and compute features. 
     
     Parameters
     ----------
-    windows_ds: BaseConcatDataset of WindowsDataset
+    concat_ds: BaseConcatDataset of BaseDatasets
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple)
         A list of frequency bands of prefiltered signals.
@@ -62,13 +62,13 @@ def extract_hilbert_features(windows_ds, frequency_bands, fu, windowing_fn=None)
         The connectivity domain feature DataFrame including target information and feature 
         name annotations.
     """
-    windows_ds = _filter(
-        windows_ds=windows_ds,
+    concat_ds = _filter(
+        ds=concat_ds,
         frequency_bands=frequency_bands,
     )
     log.debug('Extracting ...')
     connectivity_df = []
-    for ds_i, ds in enumerate(windows_ds.datasets):
+    for ds_i, ds in enumerate(concat_ds.datasets):
         # for connectivity domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]
         f, feature_names = [], []

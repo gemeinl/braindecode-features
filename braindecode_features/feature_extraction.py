@@ -12,18 +12,16 @@ from braindecode_features.utils import _initialize_windowing_fn
 log = logging.getLogger(__name__)
 
 
-def extract_windows_ds_features(
-    windows_ds, frequency_bands, windowing_params, params=None, domains=None, n_jobs=1):
+def extract_ds_features(
+    ds, frequency_bands, windowing_params, params=None, n_jobs=1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
     ----------
-    windows_ds: BaseConcatDataset of WindowsDataset
+    ds: BaseConcatDataset of BaseDataset
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple(int, int))
         A list of frequency bands of prefiltered signals.
-    domains: list(str)
-        List of domains of features to be computed.
     n_jobs: int
         Number of processes used for parallelization.
     
@@ -34,14 +32,14 @@ def extract_windows_ds_features(
         feature name annotations.
     """
     feature_functions, extraction_routines = _get_feature_functions_and_extraction_routines()
-    if domains is not None:
-        feature_functions = {domain: feature_functions[domain] for domain in domains}
-        extraction_routines = {domain: extraction_routines[domain] for domain in domains}
+    #if domains is not None:
+    #    feature_functions = {domain: feature_functions[domain] for domain in domains}
+    #    extraction_routines = {domain: extraction_routines[domain] for domain in domains}
     if params is not None:
         params = _params_to_domain_params(params=params)
-    has_events = len(windows_ds.datasets[0].raw.annotations)
+    has_events = len(ds.datasets[0].raw.annotations)
     windowing_fn = _initialize_windowing_fn(has_events, windowing_params)
-    log.debug(f'got {len(windows_ds.datasets)} datasets')
+    log.debug(f'got {len(ds.datasets)} datasets')
     domain_dfs = {}
     # extract features by domain, since each domain has it's very own routine
     for domain in extraction_routines.keys():
@@ -59,7 +57,7 @@ def extract_windows_ds_features(
             fu.set_params(**params[domain])
         # extract features of one domain at a time
         domain_dfs[domain] = extraction_routines[domain](
-            windows_ds=windows_ds,
+            concat_ds=ds,
             frequency_bands=frequency_bands,
             fu=fu,
             windowing_fn=windowing_fn,
@@ -72,7 +70,6 @@ def extract_windows_ds_features(
 
 
 def _build_transformer_list(funcs):
-    """Wrap functions are with MyFunctionTransformer."""
     return [(func.func.__name__, func) for func in funcs]
 
 
@@ -121,7 +118,7 @@ def _finalize_df(dfs):
     return df
 
 
-class MyFunctionTransformer(FunctionTransformer):
+class _MyFunctionTransformer(FunctionTransformer):
     """Inspired by mne features. Wrap a feature function. Upon call of transform
     save the shape of the input data and output data. Implement a get_feature_names()
     method that returns a list of length corresponding to input channels.
@@ -183,11 +180,11 @@ def _get_feature_functions(domain=None):
         Mapping of feature domain to feature extraction functions.
     """
     feature_functions = {
-        'Time': [MyFunctionTransformer(f) for f in get_time_feature_functions()],
-        'Fourier': [MyFunctionTransformer(f) for f in get_fourier_feature_functions()],
-        'Hilbert': [MyFunctionTransformer(f) for f in get_hilbert_feature_functions()],
-        'Wavelet': [MyFunctionTransformer(f) for f in get_wavelet_feature_functions()],
-        'Cross-frequency': [MyFunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
+        'Time': [_MyFunctionTransformer(f) for f in get_time_feature_functions()],
+        'Fourier': [_MyFunctionTransformer(f) for f in get_fourier_feature_functions()],
+        'Wavelet': [_MyFunctionTransformer(f) for f in get_wavelet_feature_functions()],
+        'Hilbert': [_MyFunctionTransformer(f) for f in get_hilbert_feature_functions()],
+        'Cross-frequency': [_MyFunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
     }
     if domain is not None:
         feature_functions = {domain: feature_functions[domain]}
@@ -210,8 +207,8 @@ def _get_extraction_routines(domain=None):
     extraction_routines = {
         'Time': extract_time_features,
         'Fourier': extract_fourier_features,
-        'Hilbert': extract_hilbert_features,
         'Wavelet': extract_wavelet_features,
+        'Hilbert': extract_hilbert_features,
         'Cross-frequency': extract_cross_frequency_features,
     }
     if domain is not None:

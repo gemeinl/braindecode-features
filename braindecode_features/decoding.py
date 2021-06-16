@@ -62,6 +62,50 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     return X, y, groups, feature_names
 
 
+def window_accuracy(y, y_pred):
+    """Compute the accuracy of window predictions.
+    
+    Parameters
+    ----------
+    y: array-like
+        Window labels.
+    y_pred: array-like
+        Window predictions.
+        
+    Returns
+    -------
+    Window accuracy.
+    """
+    return (y == y_pred).mean()
+
+
+def trial_accuracy(y, y_pred, y_groups):
+    """Compute the accuracy of window predictions.
+    
+    Parameters
+    ----------
+    y: array-like
+        Window labels.
+    y_pred: array-like
+        Window predictions.
+    groups: array-like
+        Mapping of labels and predictions to groups.
+    
+    Returns
+    -------
+    Trial accuracy.
+    """
+    pred_df = {'y': y, 'pred': y_pred, 'group': y_groups}
+    trial_pred, trial_y = [], []
+    for n, g in pd.DataFrame(pred_df).groupby('group'):
+        trial_pred.append(g.pred.value_counts().idxmax())  # TODO: verify
+        assert len(g.y.unique()) == 1
+        trial_y.append(g.y.value_counts().idxmax())    
+    trial_pred = np.array(trial_pred)
+    trial_y = np.array(trial_y)
+    return (trial_pred == trial_y).mean()
+
+
 def cross_validate(
     df, clf, subject_id, only_last_fold, agg_func, windows_as_examples, 
     out_path=None):
@@ -155,50 +199,6 @@ def cross_validate(
         log.info(info[cols].tail(1))
         infos.append(info)
     return pd.concat(infos)
-
-
-def window_accuracy(y, y_pred):
-    """Compute the accuracy of window predictions.
-    
-    Parameters
-    ----------
-    y: array-like
-        Window labels.
-    y_pred: array-like
-        Window predictions.
-        
-    Returns
-    -------
-    Window accuracy.
-    """
-    return (y == y_pred).mean()
-
-
-def trial_accuracy(y, y_pred, y_groups):
-    """Compute the accuracy of window predictions.
-    
-    Parameters
-    ----------
-    y: array-like
-        Window labels.
-    y_pred: array-like
-        Window predictions.
-    groups: array-like
-        Mapping of labels and predictions to groups.
-    
-    Returns
-    -------
-    Trial accuracy.
-    """
-    pred_df = {'y': y, 'pred': y_pred, 'group': y_groups}
-    trial_pred, trial_y = [], []
-    for n, g in pd.DataFrame(pred_df).groupby('group'):
-        trial_pred.append(g.pred.value_counts().idxmax())  # TODO: verify
-        assert len(g.y.unique()) == 1
-        trial_y.append(g.y.value_counts().idxmax())    
-    trial_pred = np.array(trial_pred)
-    trial_y = np.array(trial_y)
-    return (trial_pred == trial_y).mean()
 
 
 def _examples_from_windows(df):

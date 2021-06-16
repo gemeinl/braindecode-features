@@ -92,13 +92,13 @@ def get_time_feature_functions():
     return funcs
 
 
-def extract_time_features(windows_ds, frequency_bands, fu, windowing_fn):
+def extract_time_features(concat_ds, frequency_bands, fu, windowing_fn):
     """Extract features in time domain. Therefore, iterate all the datasets. Use
     windows of prefiltered band signals and compute features.
     
     Parameters
     ----------
-    windows_ds: BaseConcatDataset of WindowsDataset
+    concat_ds: BaseConcatDataset of BaseDatasets
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple)
         A list of frequency bands of prefiltered signals.
@@ -112,7 +112,7 @@ def extract_time_features(windows_ds, frequency_bands, fu, windowing_fn):
         name annotations.
     """
     windows_ds = _filter_and_window(
-        windows_ds=windows_ds,
+        ds=concat_ds,
         frequency_bands=frequency_bands,
         windowing_fn=windowing_fn,
     )

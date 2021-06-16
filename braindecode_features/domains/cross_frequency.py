@@ -33,13 +33,13 @@ def get_cross_frequency_feature_functions():
     return funcs
 
 
-def extract_cross_frequency_features(windows_ds, frequency_bands, fu, windowing_fn):
+def extract_cross_frequency_features(concat_ds, frequency_bands, fu, windowing_fn):
     """Extract wavelet transform features. Therefore, iterate all the datasets. 
     Use windows of pairs of prefiltered signals and compute features. 
     
     Parameters
     ----------
-    windows_ds: BaseConcatDataset of WindowsDataset
+    ds: BaseConcatDataset of BaseDatasets
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple)
         A list of frequency bands of prefiltered signals.
@@ -52,8 +52,8 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu, windowing_
         The cross frequency domain feature DataFrame including target information
         and feature name annotations.
     """
-    windows_ds = _filter(
-        windows_ds=windows_ds,
+    concat_ds = _filter(
+        ds=concat_ds,
         frequency_bands=frequency_bands,
     )
     log.debug('Extracting ...')
@@ -63,8 +63,9 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu, windowing_
     all_possible_bands = [(frequency_bands[band_i], frequency_bands[band_j])
                           for band_i in range(len(frequency_bands)) 
                           for band_j in range(band_i+1, len(frequency_bands))]
+    log.debug(f'will use bands {all_possible_bands}')
     cross_frequency_df = []
-    for ds_i, ds in enumerate(windows_ds.datasets):
+    for ds_i, ds in enumerate(concat_ds.datasets):
         # get names of unfiltered channels
         sensors = _get_unfiltered_chs(ds, frequency_bands)
         f, feature_names = [], []

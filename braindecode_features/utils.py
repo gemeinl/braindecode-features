@@ -9,35 +9,6 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
-
-def _generate_feature_names(fu, ch_names):
-    """From the feature names returned by the feature functions through the feature union,
-    replace the unknown channels indicated by ids (ch0 or ch0-ch13) with their actual names.
-    
-    Parameters
-    ----------
-    fu: FeatureUnion
-        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
-    ch_names: list
-        List of original channel names that will be inserted into the feature names
-        returned by the union.
-    
-    Returns
-    -------
-    feature_names: list
-        List of feature names including channel(s), frequency band(s), feature domain 
-        and feature type.
-    """
-    feature_names = fu.get_feature_names()
-    mapping = {f'ch{i}': ch for i, ch in enumerate(ch_names)}
-    # loop below taken from mne-features
-    for pattern, translation in mapping.items():
-        r = re.compile(rf'{pattern}(?=_)|{pattern}\b')
-        feature_names = [
-            r.sub(string=feature_name, repl=translation)
-            for feature_name in feature_names]
-    return feature_names
-
         
 def filter_df(df, query, exact_match=False, level_to_consider=None):
     """Filter the MultiIndex of a DataFrame wrt 'query'. Thereby, columns required
@@ -117,10 +88,39 @@ def drop_window(df, window_i):
     return df
 
 
-def _get_unfiltered_chs(windows_ds, frequency_bands):
-    windows_or_raw = 'windows' if hasattr(windows_ds, 'windows') else 'raw'
+def _generate_feature_names(fu, ch_names):
+    """From the feature names returned by the feature functions through the feature union,
+    replace the unknown channels indicated by ids (ch0 or ch0-ch13) with their actual names.
+    
+    Parameters
+    ----------
+    fu: FeatureUnion
+        Scikit-learn FeatureUnion of FunctionTransformers extracting features.
+    ch_names: list
+        List of original channel names that will be inserted into the feature names
+        returned by the union.
+    
+    Returns
+    -------
+    feature_names: list
+        List of feature names including channel(s), frequency band(s), feature domain 
+        and feature type.
+    """
+    feature_names = fu.get_feature_names()
+    mapping = {f'ch{i}': ch for i, ch in enumerate(ch_names)}
+    # loop below taken from mne-features
+    for pattern, translation in mapping.items():
+        r = re.compile(rf'{pattern}(?=_)|{pattern}\b')
+        feature_names = [
+            r.sub(string=feature_name, repl=translation)
+            for feature_name in feature_names]
+    return feature_names
+
+
+def _get_unfiltered_chs(ds, frequency_bands):
+    windows_or_raw = 'windows' if hasattr(ds, 'windows') else 'raw'
     orig_chs = []
-    for ch in getattr(windows_ds, windows_or_raw).ch_names:
+    for ch in getattr(ds, windows_or_raw).ch_names:
         if any([ch.endswith('-'.join([str(low), str(high)])) for (low, high) in frequency_bands]):
             continue
         else:
@@ -160,31 +160,32 @@ def _find_col(columns, hint):
     return found_col[0]
 
 
-def _filter_and_window(windows_ds, frequency_bands, windowing_fn):
+def _filter_and_window(ds, frequency_bands, windowing_fn):
     return _window(
-        windows_ds=_filter(
-            windows_ds=windows_ds,
+        ds=_filter(
+            ds=ds,
             frequency_bands=frequency_bands,
         ),
         windowing_fn=windowing_fn,
     )
 
 
-def _filter(windows_ds, frequency_bands):
-    """"""
+def _filter(ds, frequency_bands):
+    """Filter signals in a BaseConcatDataset of BaseDataset in time domain to given
+    frequency ranges."""
     from braindecode.datautil.preprocess import Preprocessor, preprocess, filterbank
     # check whether filtered signals already exist
     frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
     all_band_channels = []
     for frequency_band in frequency_bands_str:
         # pick all channels corresponding to a single frequency band
-        all_band_channels.append([ch for ch in windows_ds.datasets[0].raw.ch_names 
+        all_band_channels.append([ch for ch in ds.datasets[0].raw.ch_names 
                                   if ch.endswith(frequency_band)])
     # If we cannot find all the bands in the channel names annotations, we have to filter.
     if not all(all_band_channels):
         log.debug('Filtering ...')
         preprocess(
-            concat_ds=windows_ds,
+            concat_ds=ds,
             preprocessors=[
                 Preprocessor(
                     apply_on_array=False,
@@ -194,17 +195,17 @@ def _filter(windows_ds, frequency_bands):
                 )
             ],
         )
-    return windows_ds
+    return ds
 
         
-def _window(windows_ds, windowing_fn):
+def _window(ds, windowing_fn):
     """Cut braindecode compute windows."""
     log.debug('Windowing ...')
-    windows_ds = windowing_fn(
-        concat_ds=windows_ds,
+    ds = windowing_fn(
+        concat_ds=ds,
     )
-    log.debug(f'got {len(windows_ds)} windows')
-    return windows_ds
+    log.debug(f'got {len(ds)} windows')
+    return ds
 
 
 def _initialize_windowing_fn(has_events, windowing_params):
@@ -237,7 +238,7 @@ def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
         )
     ])
     return _window(
-        windows_ds=concat_ds,
+        ds=concat_ds,
         windowing_fn=windowing_fn,
     )
 
