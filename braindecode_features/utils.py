@@ -6,10 +6,6 @@ from functools import partial
 import numpy as np
 import pandas as pd
 
-from braindecode.datautil.windowers import create_windows_from_events, create_fixed_length_windows
-from braindecode.datautil.preprocess import Preprocessor, preprocess, filterbank
-from braindecode.datasets.base import BaseDataset, BaseConcatDataset
-
 
 log = logging.getLogger(__name__)
 
@@ -174,6 +170,7 @@ def _filter_and_window(windows_ds, frequency_bands, windowing_fn):
 
 
 def _filter(windows_ds, frequency_bands):
+    from braindecode.datautil.preprocess import Preprocessor, preprocess, filterbank
     windows_or_raws = 'windows' if hasattr(windows_ds.datasets[0], 'windows') else 'raw'
     # check whether filtered signals already exist
     frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
@@ -211,6 +208,7 @@ def _window(windows_ds, windowing_fn):
 
 
 def _initialize_windowing_fn(has_events, windowing_params):
+    from braindecode.datautil.windowers import create_windows_from_events, create_fixed_length_windows
     if has_events:
         windowing_fn = partial(
             create_windows_from_events,
@@ -225,6 +223,7 @@ def _initialize_windowing_fn(has_events, windowing_params):
 
 
 def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
+    from braindecode.datasets.base import BaseDataset, BaseConcatDataset
     raw = ds.raw.copy()
     raw = raw.pick_channels(band_channels)
     raw._data = data

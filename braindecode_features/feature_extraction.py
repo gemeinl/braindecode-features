@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 
 def extract_windows_ds_features(
-    windows_ds, frequency_bands, windowing_params=None, params=None, domains=None, n_jobs=1):
+    windows_ds, frequency_bands, windowing_params, params=None, domains=None, n_jobs=1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
@@ -33,14 +33,14 @@ def extract_windows_ds_features(
         The final feature DataFrame holding all features, target information and 
         feature name annotations.
     """
-    feature_functions, extraction_routines = get_feature_functions_and_extraction_routines()
+    feature_functions, extraction_routines = _get_feature_functions_and_extraction_routines()
     if domains is not None:
         feature_functions = {domain: feature_functions[domain] for domain in domains}
         extraction_routines = {domain: extraction_routines[domain] for domain in domains}
     if params is not None:
         params = _params_to_domain_params(params=params)
     has_events = len(windows_ds.datasets[0].raw.annotations)
-    windowing_fn = _initialize_windowing_fn(has_events, windowing_params)  # TODO:
+    windowing_fn = _initialize_windowing_fn(has_events, windowing_params)
     log.debug(f'got {len(windows_ds.datasets)} datasets')
     domain_dfs = {}
     # extract features by domain, since each domain has it's very own routine
@@ -169,7 +169,7 @@ class MyFunctionTransformer(FunctionTransformer):
         return X
     
 
-def get_feature_functions(domain=None):
+def _get_feature_functions(domain=None):
     """Get feature extraction functions.
     
     Parameters
@@ -194,7 +194,7 @@ def get_feature_functions(domain=None):
     return feature_functions
 
 
-def get_extraction_routines(domain=None):
+def _get_extraction_routines(domain=None):
     """Get feature extraction routines.
     
     Parameters
@@ -219,7 +219,7 @@ def get_extraction_routines(domain=None):
     return extraction_routines
 
         
-def get_feature_functions_and_extraction_routines(domain=None):
+def _get_feature_functions_and_extraction_routines(domain=None):
     """Get feature functions and extraction routines of all or a single domain.
     
     Parameters
@@ -232,4 +232,4 @@ def get_feature_functions_and_extraction_routines(domain=None):
     tuple(dict(str: func), dics(str, func))
         Feature functions and extraction routines ordered by domain.
     """
-    return get_feature_functions(domain=domain), get_extraction_routines(domain=domain)
+    return _get_feature_functions(domain=domain), _get_extraction_routines(domain=domain)
