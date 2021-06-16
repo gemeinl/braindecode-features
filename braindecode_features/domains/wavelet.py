@@ -57,7 +57,7 @@ def extract_wavelet_features(windows_ds, frequency_bands, fu, windowing_fn):
         The wavelet domain feature DataFrame including target information and feature 
         name annotations.
     """
-    log.info('Extracting ...')
+    log.debug('Extracting ...')
     w = 'morl'
     central_band = False
     step_width = 1

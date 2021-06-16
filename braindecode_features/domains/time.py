@@ -116,7 +116,7 @@ def extract_time_features(windows_ds, frequency_bands, fu, windowing_fn):
         frequency_bands=frequency_bands,
         windowing_fn=windowing_fn,
     )
-    log.info('Extracting ...')
+    log.debug('Extracting ...')
     frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
     all_band_channels = []
     for frequency_band in frequency_bands_str:

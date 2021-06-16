@@ -153,6 +153,7 @@ def _read_and_aggregate(path, agg_func):
 
 
 def _find_col(columns, hint):
+    """Find a column containing 'hint' in the column name."""
     found_col = [c for c in columns if hint in c]
     assert len(found_col) == 1, (
         f'Please be more precise, found: {found_col}')
@@ -170,17 +171,17 @@ def _filter_and_window(windows_ds, frequency_bands, windowing_fn):
 
 
 def _filter(windows_ds, frequency_bands):
+    """"""
     from braindecode.datautil.preprocess import Preprocessor, preprocess, filterbank
-    windows_or_raws = 'windows' if hasattr(windows_ds.datasets[0], 'windows') else 'raw'
     # check whether filtered signals already exist
     frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
     all_band_channels = []
     for frequency_band in frequency_bands_str:
         # pick all channels corresponding to a single frequency band
-        all_band_channels.append([ch for ch in getattr(windows_ds.datasets[0], windows_or_raws).ch_names 
+        all_band_channels.append([ch for ch in windows_ds.datasets[0].raw.ch_names 
                                   if ch.endswith(frequency_band)])
-    requires_filtering = not all(all_band_channels)
-    if requires_filtering:
+    # If we cannot find all the bands in the channel names annotations, we have to filter.
+    if not all(all_band_channels):
         log.debug('Filtering ...')
         preprocess(
             concat_ds=windows_ds,
@@ -197,17 +198,17 @@ def _filter(windows_ds, frequency_bands):
 
         
 def _window(windows_ds, windowing_fn):
-    windows_or_raws = 'windows' if hasattr(windows_ds.datasets[0], 'windows') else 'raw'
-    if windows_or_raws == 'raw':
-        log.debug('Windowing ...')
-        windows_ds = windowing_fn(
-            concat_ds=windows_ds,
-        )
+    """Cut braindecode compute windows."""
+    log.debug('Windowing ...')
+    windows_ds = windowing_fn(
+        concat_ds=windows_ds,
+    )
     log.debug(f'got {len(windows_ds)} windows')
     return windows_ds
 
 
 def _initialize_windowing_fn(has_events, windowing_params):
+    """Set windowing params to the appropriate windowing function."""
     from braindecode.datautil.windowers import create_windows_from_events, create_fixed_length_windows
     if has_events:
         windowing_fn = partial(
@@ -223,6 +224,7 @@ def _initialize_windowing_fn(has_events, windowing_params):
 
 
 def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
+    """Overwrite data in ds.raw with domain transformed data and cut windows."""
     from braindecode.datasets.base import BaseDataset, BaseConcatDataset
     raw = ds.raw.copy()
     raw = raw.pick_channels(band_channels)
@@ -241,6 +243,8 @@ def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
 
 
 def _check_df_consistency(df):
+    """Make sure the feature DataFrames do not contain illegal values like 
+    +/- inf, None or NaN."""
     assert not pd.isna(df.values).any()
     assert not pd.isnull(df.values).any()
     assert np.abs(df.values).max() < np.inf

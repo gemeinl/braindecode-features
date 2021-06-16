@@ -66,7 +66,7 @@ def extract_hilbert_features(windows_ds, frequency_bands, fu, windowing_fn=None)
         windows_ds=windows_ds,
         frequency_bands=frequency_bands,
     )
-    log.info('Extracting ...')
+    log.debug('Extracting ...')
     connectivity_df = []
     for ds_i, ds in enumerate(windows_ds.datasets):
         # for connectivity domain features only consider the signals filtered in time domain

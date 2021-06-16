@@ -55,7 +55,7 @@ def extract_fourier_features(windows_ds, frequency_bands, fu, windowing_fn):
         windows_ds=windows_ds,
         windowing_fn=windowing_fn,
     )
-    log.info('Extracting ...')
+    log.debug('Extracting ...')
     dft_df = []
     for ds_i, ds in enumerate(windows_ds.datasets):
         sfreq = ds.windows.info['sfreq']

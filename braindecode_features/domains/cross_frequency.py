@@ -56,7 +56,7 @@ def extract_cross_frequency_features(windows_ds, frequency_bands, fu, windowing_
         windows_ds=windows_ds,
         frequency_bands=frequency_bands,
     )
-    log.info('Extracting ...')
+    log.debug('Extracting ...')
     # TODO: improve this, sometimes a band is contained in the other which probably
     # does not make too much sense
     # create all possible bands from all freq band limits in the form (low, high)
