@@ -59,6 +59,30 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
     return df[multiindex]
 
 
+def add_description(df, description, name):
+    """Add a custom column with 'name' to the description section of the DataFrame.
+    
+    Parameters
+    ----------
+    df: `pd.DatFrame`
+        The DataFrame to add the description to.
+    description: array-like
+        Data of same length as DataFrame.
+    name: str
+        The name of data to be added.
+        
+    Returns
+    -------
+    `pd.DataFrame`
+        A DataFrame that includes the column ('Description', name, '', '').
+    """
+    df_ = pd.DataFrame(
+        description, 
+        columns=pd.MultiIndex.from_tuples([('Description', name, '', '')])
+    )
+    return pd.concat([df_, df], axis=1)
+
+
 def drop_window(df, window_i):
     """Drop all rows of window_i in the feature DataFrame.
     
