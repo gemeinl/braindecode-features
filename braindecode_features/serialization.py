@@ -1,10 +1,14 @@
 import os
 import glob
+import logging
 
 import pandas as pd
 from joblib import Parallel, delayed
 
 from .utils import _read_and_aggregate, _find_col
+
+
+log = logging.getLogger(__name__)
 
 
 def save_features(df, out_path):
@@ -53,6 +57,7 @@ def read_features(path, agg_func=None, n_jobs=1):
         file_paths,
         key=lambda p: int(os.path.splitext(os.path.basename(p))[0])
     )
+    log.debug(f'reading {len(file_paths)} files')
     dfs = Parallel(n_jobs=n_jobs)(delayed(_read_and_aggregate)(p, agg_func) for p in file_paths)
     dfs = pd.concat(dfs).reset_index(drop=True)
     return dfs
