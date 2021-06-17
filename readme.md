@@ -119,50 +119,16 @@ The feature names allow for detailed post-hoc analysis, since they hold all requ
 
 ## How can I pick a specific subset of features for decoding?
 braindecode-features offers a simple way to filter the potentially huge FeatureDataFrame to a subset of features as demonstrated below:
-- filter for features that were extracted from the Fourier domain:
+- filter for features that were extracted from the Fourier domain, variance features, features extracted at electrode locations that contain a 'C' in the sensor name (including bivariate features where one channel had a 'C' in its name), or features extracted at frequency band 8-13 Hz:
   ```python
   from braindecode_features import filter_df
   subset_df = filter_df(
       df=feature_df,
-      query='Fourier',
-      exact_match=False,  # True
-      level_to_consider=None,  # 0
+      query='Fourier',         # 'variance', 'C'  , '8-13'  
+      exact_match=False,       # True      , False, True
+      level_to_consider=None,  # 1         , 2    , 3
   )
   ```
-  <img src="images/feature_df_fourier_subset.png" width="600">  
-- filter for the variance features of all domains (excluding covariance from time domain):
-  ```python
-  from braindecode_features import filter_df
-  subset_df = filter_df(
-      df=feature_df,
-      query='variance',
-      exact_match=True,
-      level_to_consider=1,
-  )
-  ```
-  <img src="images/feature_df_variance_subset.png" width="600">  
-- filter for features that were extracted at electrode locations that conain a 'C' in the sensor name (including bivariate features where one channel had a 'C' in its name):
-  ```python
-  from braindecode_features import filter_df
-  subset_df = filter_df(
-      df=feature_df,
-      query='C',
-      exact_match=False,
-      level_to_consider=2,
-  )
-  ```
-  <img src="images/feature_df_c_subset.png" width="600">  
-- filter for features that were extracted at frequency band 8-13Hz:
-  ```python
-  from braindecode_features import filter_df
-  subset_df = filter_df(
-      df=feature_df,
-      query='8-13',
-      exact_match=False,  # True
-      level_to_consider=None,  # 3
-  )
-  ```
-  <img src="images/feature_df_hz_subset.png" width="600">  
 In all cases, the filtering function preserves the entries in domain `Description` and concatenates the selection appropriately, such that `filter_df` can be called multiple times and that the resulting DataFrame is compatible with the further steps leading to decoding.
 
 ## What are the requirements?
