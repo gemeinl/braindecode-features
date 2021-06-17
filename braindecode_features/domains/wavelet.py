@@ -30,7 +30,7 @@ def get_wavelet_feature_functions():
     def standard_deviation(X): return np.mean(np.std(X, axis=-1), axis=0)
     def value_range(X): return np.mean(np.ptp(X, axis=-1), axis=0)
     def variance(X): return np.mean(np.var(X, axis=-1), axis=0)
-    
+
 
     funcs = [bounded_variation, maximum, mean, median, minimum, power, 
              standard_deviation, value_range, variance]
@@ -74,7 +74,9 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
                 pseudo_freqs = [(h_freq + l_freq)/2]
             # or use multiple scales between highpass and lowpass
             else:
-                pseudo_freqs = np.linspace(l_freq, h_freq, num=int((h_freq-l_freq)/step_width))
+                pseudo_freqs = np.linspace(l_freq, h_freq, num=int((h_freq-l_freq)/step_width)+1)
+            if ds_i == 0:
+                log.info(f'Using scales corresponding to pseudo frequencies: {pseudo_freqs}.')
             # generate scales from chosen frequencies above
             scales = [_freq_to_scale(freq, w, sfreq) for freq in pseudo_freqs]
             # transformt the signals using cwt
@@ -91,7 +93,7 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
                 transform.append(windows_ds.datasets[0].windows.get_data())
             transform = np.array(transform)
             log.debug(f'wavelet in {l_freq} – {h_freq} before union {transform.shape}')
-            # call all featuresin the union
+            # call all features in the union
             f.append(fu.fit_transform(transform).astype(np.float32))
             # first, manually add the frequency band to the used channel names
             # then generate feature names
