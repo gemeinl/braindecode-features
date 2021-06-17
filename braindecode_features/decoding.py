@@ -52,11 +52,13 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     else:
         if not windows_as_examples:
             df = _examples_from_windows(df)
-    # for data and feature names, ignore first 3 columns (Target, Dataset, Window)
-    X = df[df.columns[3:]].to_numpy()
+    # for data and feature names, ignore 'Description' domain
+    feature_cols = [col for col in df.columns if 'Description' not in col]
+    X = df[feature_cols].to_numpy()
     y = df[target_col].to_numpy()
     groups = df[trial_col].to_numpy()
-    feature_names = df.columns[3:].to_frame(index=False)
+    # feature names start after 'Description' domain
+    feature_names = df.columns[len(df.columns)-len(feature_cols):].to_frame(index=False)
     assert len(feature_names) == X.shape[-1]
     assert X.shape[0] == y.shape[0] == groups.shape[0]
     return X, y, groups, feature_names
