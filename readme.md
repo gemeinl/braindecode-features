@@ -118,8 +118,8 @@ The feature names allow for detailed post-hoc analysis, since they hold all requ
 
 
 ## How can I pick a specific subset of features for decoding?
-braindecode-features offers a simple way to filter the potentially huge FeatureDataFrame to a subset of features as demonstrated below:
-- filter for features that were extracted from the Fourier domain, variance features, features extracted at electrode locations that contain a 'C' in the sensor name (including bivariate features where one channel had a 'C' in its name), or features extracted at frequency band 8-13 Hz:
+braindecode-features offers a simple way to filter the potentially huge FeatureDataFrame to a subset of features.
+For example, we can filter for features that were extracted from the Fourier domain, for variance features,  for features extracted at electrode locations that contain a 'C' in the sensor name (including bivariate features where one channel had a 'C' in its name), or features extracted at frequency band 8-13 Hz:
   ```python
   from braindecode_features import filter_df
   subset_df = filter_df(
