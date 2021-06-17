@@ -1,6 +1,5 @@
 import re
 import logging
-from copy import deepcopy
 from functools import partial
 
 import numpy as np
@@ -133,11 +132,12 @@ def _aggregate_windows(df, agg_func):
     grouped = df.groupby(trial_col)
     df = grouped.agg(agg_func)
     df.reset_index(inplace=True)
-    # set window id to zero when aggregating, will be dropped later
-    # keep it at this point for compatibility
-    df[_find_col(df.columns, 'Window')] = len(df) * [0]
+    # drop the window column
+    if _find_col(df.columns, 'Window'):
+        df.drop(_find_col(df.columns, 'Window'), axis=1, inplace=True)
+        log.debug('aggregated features over windows. dropped window column')
     # agg changes dtype of target, force it to keep original dtype
-    cols = [_find_col(df, col) for col in ['Trial', 'Target', 'Window']]
+    cols = [_find_col(df, col) for col in ['Trial', 'Target']]
     df[cols] = df[cols].astype(np.int64)
     return df
 
