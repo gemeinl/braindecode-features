@@ -64,6 +64,7 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
         data = ds.windows.get_data(picks=sensors)
         # transform the signals using fft
         transform = np.fft.rfft(data, axis=-1)
+        transform = transform / data.shape[-1]
         bins = np.fft.rfftfreq(data.shape[-1], 1/sfreq)
         f, feature_names = [], []
         # TODO: give all bands at the same time?
