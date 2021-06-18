@@ -108,6 +108,8 @@ def drop_window(df, window_i):
     windows -= windows.values > window_i
     # insert the updated windows again
     df.insert(1, window_col, windows)
+    # reset the index
+    df.reset_index(drop=True, inplace=True)
     return df
 
 
@@ -144,7 +146,8 @@ def _get_unfiltered_chs(ds, frequency_bands):
     windows_or_raw = 'windows' if hasattr(ds, 'windows') else 'raw'
     orig_chs = []
     for ch in getattr(ds, windows_or_raw).ch_names:
-        if any([ch.endswith('-'.join([str(low), str(high)])) for (low, high) in frequency_bands]):
+        if any([ch.endswith('-'.join([str(low), str(high)])) 
+                for (low, high) in frequency_bands]):
             continue
         else:
             orig_chs.append(ch)
