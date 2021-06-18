@@ -142,3 +142,4 @@ Running the code requires following libraries:
 - [braindecode](https://braindecode.org/)
 - [pytest](https://docs.pytest.org/en/6.2.x/)
 - [joblib](https://joblib.readthedocs.io/en/latest/)
+- [tqdm](https://tqdm.github.io/)
