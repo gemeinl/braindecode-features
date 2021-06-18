@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 import pywt
 
@@ -30,7 +31,7 @@ def get_wavelet_feature_functions():
     def standard_deviation(X): return np.mean(np.std(X, axis=-1), axis=0)
     def value_range(X): return np.mean(np.ptp(X, axis=-1), axis=0)
     def variance(X): return np.mean(np.var(X, axis=-1), axis=0)
-
+    
 
     funcs = [bounded_variation, maximum, mean, median, minimum, power, 
              standard_deviation, value_range, variance]
@@ -62,7 +63,7 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
     central_band = False
     step_width = 1
     cwt_df = []
-    for ds_i, ds in enumerate(concat_ds.datasets):
+    for ds_i, ds in enumerate(tqdm(concat_ds.datasets)):
         sfreq = ds.raw.info['sfreq']
         # for cwt features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)

@@ -2,6 +2,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from scipy import stats
 
 from braindecode_features.utils import _generate_feature_names, _filter_and_window, _check_df_consistency
@@ -124,7 +125,7 @@ def extract_time_features(concat_ds, frequency_bands, fu, windowing_fn):
         all_band_channels.append([ch for ch in windows_ds.datasets[0].windows.ch_names 
                                   if ch.endswith(frequency_band)])
     time_df = []
-    for ds_i, ds in enumerate(windows_ds.datasets):
+    for ds_i, ds in enumerate(tqdm(windows_ds.datasets)):
         # for time domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]    
         f, feature_names = [], []
