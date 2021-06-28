@@ -2,11 +2,12 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
 
 from braindecode_features.domains import *
-from braindecode_features.utils import _initialize_windowing_fn
+from braindecode_features.utils import _initialize_windowing_fn, FeatureDataset
 
 
 log = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ def extract_ds_features(
     
     Parameters
     ----------
-    ds: BaseConcatDataset of BaseDataset
+    concat_ds: BaseConcatDataset of BaseDataset
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple(int, int))
         A list of frequency bands of prefiltered signals.
@@ -44,36 +45,56 @@ def extract_ds_features(
     #    extraction_routines = {domain: extraction_routines[domain] for domain in domains}
     if params is not None:
         params = _params_to_domain_params(params=params)
-    has_events = len(ds.datasets[0].raw.annotations)
+    has_events = len(concat_ds.datasets[0].raw.annotations)
     windowing_fn = _initialize_windowing_fn(has_events, windowing_params)
-    log.debug(f'got {len(ds.datasets)} datasets')
-    domain_dfs = {}
-    # extract features by domain, since each domain has it's very own routine
-    for domain in extraction_routines.keys():
-        # Do not extract cross-frequency features if there is only one band
-        if len(frequency_bands) == 1 and domain == 'Cross-frequency':
-            continue
-        log.info(f'Computing features of domain: {domain}.')
-        transformer_list = _build_transformer_list(feature_functions[domain])
-        fu = FeatureUnion(
-            transformer_list=transformer_list,
-            n_jobs=n_jobs,
+    log.debug(f'got {len(concat_ds.datasets)} datasets')
+    iterrange = range(len(concat_ds.datasets))
+    try:
+        from tqdm import tqdm
+        iterrange = tqdm(iterrange)
+    except:
+        pass
+    all_dfs = []
+    for i in iterrange:
+        one_concat_ds = concat_ds.split([i])['0']
+        domain_dfs = {}
+        # extract features by domain, since each domain has it's very own routine
+        for domain in extraction_routines.keys():
+            # Do not extract cross-frequency features if there is only one band
+            if len(frequency_bands) == 1 and domain == 'Cross-frequency':
+                continue
+            log.info(f'Computing features of domain: {domain}.')
+            transformer_list = _build_transformer_list(feature_functions[domain])
+            fu = FeatureUnion(
+                transformer_list=transformer_list,
+                n_jobs=n_jobs,
+            )
+            # set params
+            if params is not None and domain in params:
+                fu.set_params(**params[domain])
+            # extract features of one domain at a time
+            domain_dfs[domain] = extraction_routines[domain](
+                concat_ds=one_concat_ds,
+                frequency_bands=frequency_bands,
+                fu=fu,
+                windowing_fn=windowing_fn,
+            )
+        # concatenate domain dfs and make final df pretty
+        df = _finalize_df(
+            dfs=list(domain_dfs.values()),
         )
-        # set params
-        if params is not None and domain in params:
-            fu.set_params(**params[domain])
-        # extract features of one domain at a time
-        domain_dfs[domain] = extraction_routines[domain](
-            concat_ds=ds,
-            frequency_bands=frequency_bands,
-            fu=fu,
-            windowing_fn=windowing_fn,
+        #one_concat_ds.datasets[0].feature_df = df
+        #del one_concat_ds.datasets[0].raw
+        
+        assert len(one_concat_ds.datasets) == 1
+        concat_ds.datasets[i] = FeatureDataset(
+            feature_df=df, 
+            description=one_concat_ds.datasets[0].description,
+            target_name=one_concat_ds.datasets[0].target_name,
         )
-    # concatenate domain dfs and make final df pretty
-    df = _finalize_df(
-        dfs=list(domain_dfs.values()),
-    )
-    return df
+        
+        #all_dfs.append(df)
+    #return pd.concat(all_dfs)
 
 
 def _build_transformer_list(funcs):

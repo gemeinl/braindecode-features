@@ -279,3 +279,30 @@ def _check_df_consistency(df):
     assert not pd.isna(df.values).any()
     assert not pd.isnull(df.values).any()
     assert np.abs(df.values).max() < np.inf
+
+
+from braindecode.datasets import BaseDataset
+class FeatureDataset(BaseDataset):
+    """
+    """
+    def __init__(self, feature_df, description=None, target_name=None):
+        super().__init__(
+            raw=None, 
+            description=description,
+            target_name=target_name,
+            transform=None,
+        )
+        self.feature_df = feature_df
+        self.raw = range(len(feature_df))  # required for iterating to work
+    
+    def __getitem__(self, index):
+        feature_cols = [col for col in self.feature_df.columns if 'Description' not in col]
+        x = self.feature_df[feature_cols].to_numpy()
+        ind = self.feature_df['Description']
+        y = ind[['Target']].to_numpy()
+        ind_cols = [col for col in ind.columns if 'Target' not in col]
+        ind = ind[ind_cols].squeeze().to_numpy()
+        return x, y, ind
+        
+    def __len__(self):
+        return len(self.feature_df)
