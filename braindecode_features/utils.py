@@ -200,7 +200,7 @@ def _filter_and_window(ds, frequency_bands, windowing_fn):
 def _filter(ds, frequency_bands):
     """Filter signals in a BaseConcatDataset of BaseDataset in time domain to given
     frequency ranges."""
-    from braindecode.datautil.preprocess import Preprocessor, preprocess, filterbank
+    from braindecode.preprocessing import Preprocessor, preprocess, filterbank
     # check whether filtered signals already exist
     frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
     all_band_channels = []
@@ -237,7 +237,10 @@ def _window(ds, windowing_fn):
 
 def _initialize_windowing_fn(has_events, windowing_params):
     """Set windowing params to the appropriate windowing function."""
-    from braindecode.datautil.windowers import create_windows_from_events, create_fixed_length_windows
+    if windowing_params is None:
+        windowing_params = {}
+    from braindecode.preprocessing import (
+        create_windows_from_events, create_fixed_length_windows)
     if has_events:
         windowing_fn = partial(
             create_windows_from_events,

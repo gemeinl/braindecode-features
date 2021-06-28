@@ -12,8 +12,10 @@ from braindecode_features.utils import _initialize_windowing_fn
 log = logging.getLogger(__name__)
 
 
+# TODO: compute all features of all domain for one ds OR
+# TODO: compute all features of one domain for all ds???
 def extract_ds_features(
-    ds, frequency_bands, windowing_params, params=None, n_jobs=1):
+    concat_ds, frequency_bands, windowing_params=None, params=None, n_jobs=-1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
@@ -22,6 +24,10 @@ def extract_ds_features(
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple(int, int))
         A list of frequency bands of prefiltered signals.
+    windowing_params
+        ...
+    params
+        ...
     n_jobs: int
         Number of processes used for parallelization.
     
@@ -31,6 +37,7 @@ def extract_ds_features(
         The final feature DataFrame holding all features, target information and 
         feature name annotations.
     """
+    assert hasattr(concat_ds.datasets[0], 'raw'), 'Expecting unwindowed data.'
     feature_functions, extraction_routines = _get_feature_functions_and_extraction_routines()
     #if domains is not None:
     #    feature_functions = {domain: feature_functions[domain] for domain in domains}
@@ -118,7 +125,7 @@ def _finalize_df(dfs):
     return df
 
 
-class _MyFunctionTransformer(FunctionTransformer):
+class _FunctionTransformer(FunctionTransformer):
     """Inspired by mne features. Wrap a feature function. Upon call of transform
     save the shape of the input data and output data. Implement a get_feature_names()
     method that returns a list of length corresponding to input channels.
@@ -180,11 +187,11 @@ def _get_feature_functions(domain=None):
         Mapping of feature domain to feature extraction functions.
     """
     feature_functions = {
-        'Time': [_MyFunctionTransformer(f) for f in get_time_feature_functions()],
-        'Fourier': [_MyFunctionTransformer(f) for f in get_fourier_feature_functions()],
-        'Wavelet': [_MyFunctionTransformer(f) for f in get_wavelet_feature_functions()],
-        'Hilbert': [_MyFunctionTransformer(f) for f in get_hilbert_feature_functions()],
-        'Cross-frequency': [_MyFunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
+        'Time': [_FunctionTransformer(f) for f in get_time_feature_functions()],
+        'Fourier': [_FunctionTransformer(f) for f in get_fourier_feature_functions()],
+        'Wavelet': [_FunctionTransformer(f) for f in get_wavelet_feature_functions()],
+        'Hilbert': [_FunctionTransformer(f) for f in get_hilbert_feature_functions()],
+        'Cross-frequency': [_FunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
     }
     if domain is not None:
         feature_functions = {domain: feature_functions[domain]}
