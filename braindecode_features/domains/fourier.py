@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 
 from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _window, _check_df_consistency
 
@@ -58,7 +57,7 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
     )
     log.debug('Extracting ...')
     dft_df = []
-    for ds_i, ds in enumerate(tqdm(windows_ds.datasets)):
+    for ds_i, ds in enumerate(windows_ds.datasets):
         sfreq = ds.windows.info['sfreq']
         # for dft features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)

@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from scipy.signal import hilbert
 
 from braindecode_features.utils import _generate_feature_names, _filter, _concat_ds_and_window, _check_df_consistency
@@ -69,7 +68,7 @@ def extract_hilbert_features(concat_ds, frequency_bands, fu, windowing_fn=None):
     )
     log.debug('Extracting ...')
     connectivity_df = []
-    for ds_i, ds in enumerate(tqdm(concat_ds.datasets)):
+    for ds_i, ds in enumerate(concat_ds.datasets):
         # for connectivity domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]
         f, feature_names = [], []

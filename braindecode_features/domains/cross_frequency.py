@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from scipy.signal import hilbert
 
 from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _filter, _concat_ds_and_window, _check_df_consistency
@@ -66,7 +65,7 @@ def extract_cross_frequency_features(concat_ds, frequency_bands, fu, windowing_f
                           for band_j in range(band_i+1, len(frequency_bands))]
     log.debug(f'will use bands {all_possible_bands}')
     cross_frequency_df = []
-    for ds_i, ds in enumerate(tqdm(concat_ds.datasets)):
+    for ds_i, ds in enumerate(concat_ds.datasets):
         # get names of unfiltered channels
         sensors = _get_unfiltered_chs(ds, frequency_bands)
         f, feature_names = [], []
