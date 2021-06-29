@@ -260,11 +260,12 @@ def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
     raw = ds.raw.copy()
     raw = raw.pick_channels(band_channels)
     raw._data = data
+    target_name = ds.target_name if isinstance(ds.target_name, str) else tuple(ds.target_name)
     concat_ds = BaseConcatDataset([
         BaseDataset(
             raw=raw, 
             description=ds.description,
-            target_name=ds.target_name,
+            target_name=target_name,
         )
     ])
     return _window(
@@ -276,9 +277,12 @@ def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
 def _check_df_consistency(df):
     """Make sure the feature DataFrames do not contain illegal values like 
     +/- inf, None or NaN."""
-    assert not pd.isna(df.values).any()
-    assert not pd.isnull(df.values).any()
-    assert np.abs(df.values).max() < np.inf
+    # TODO: their might be a tuple inside the target column which will 
+    # TODO: cause checks below to fail
+    feature_cols = df.columns[3:]  # TODO: do not hardcode this
+    assert not pd.isna(df[feature_cols].values).any()
+    assert not pd.isnull(df[feature_cols].values).any()
+    assert np.abs(df[feature_cols].values).max() < np.inf
 
 
 from braindecode.datasets import BaseDataset

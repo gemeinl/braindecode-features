@@ -76,9 +76,9 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
             h_id = np.argmin(np.abs(bins-h_freq))
             if ds_i == 0 and (bins[l_id] - l_freq != 0 or bins[h_id] - h_freq != 0):
                 bin_width = bins[1]-bins[0]
-                log.info(f'Am supposed to pick bins between {l_freq} and {h_freq} which is '
-                         f'impossible. Will use the bins closest to your selection instead: '
-                         f'{l_id*bin_width} – {h_id*bin_width}.')
+                log.debug(f'Am supposed to pick bins between {l_freq} and {h_freq} which is '
+                          f'impossible. Will use the bins closest to your selection instead: '
+                          f'{l_id*bin_width} – {h_id*bin_width}.')
             # get the data and the bins
             #data = (transform[:,:,l_id:h_id+1], bins[l_id:h_id+1])
             all_data.append(transform[:,:,l_id:h_id+1])

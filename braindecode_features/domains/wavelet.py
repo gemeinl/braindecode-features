@@ -76,7 +76,7 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
             else:
                 pseudo_freqs = np.linspace(l_freq, h_freq, num=int((h_freq-l_freq)/step_width)+1)
             if ds_i == 0:
-                log.info(f'Using scales corresponding to pseudo frequencies: {pseudo_freqs}.')
+                log.debug(f'Using scales corresponding to pseudo frequencies: {pseudo_freqs}.')
             # generate scales from chosen frequencies above
             scales = [_freq_to_scale(freq, w, sfreq) for freq in pseudo_freqs]
             # transformt the signals using cwt

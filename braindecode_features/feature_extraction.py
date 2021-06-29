@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
 
@@ -13,10 +12,9 @@ from braindecode_features.utils import _initialize_windowing_fn, FeatureDataset
 log = logging.getLogger(__name__)
 
 
-# TODO: compute all features of all domain for one ds OR
-# TODO: compute all features of one domain for all ds???
 def extract_ds_features(
-    concat_ds, frequency_bands, windowing_params=None, params=None, n_jobs=-1):
+    concat_ds, frequency_bands, windowing_params=None, params=None, 
+    out_dir=None, n_jobs=-1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
@@ -48,14 +46,8 @@ def extract_ds_features(
     has_events = len(concat_ds.datasets[0].raw.annotations)
     windowing_fn = _initialize_windowing_fn(has_events, windowing_params)
     log.debug(f'got {len(concat_ds.datasets)} datasets')
-    iterrange = range(len(concat_ds.datasets))
-    try:
-        from tqdm import tqdm
-        iterrange = tqdm(iterrange)
-    except:
-        pass
     all_dfs = []
-    for i in iterrange:
+    for i in range(len(concat_ds.datasets)):
         one_concat_ds = concat_ds.split([i])['0']
         domain_dfs = {}
         # extract features by domain, since each domain has it's very own routine
@@ -63,7 +55,7 @@ def extract_ds_features(
             # Do not extract cross-frequency features if there is only one band
             if len(frequency_bands) == 1 and domain == 'Cross-frequency':
                 continue
-            log.info(f'Computing features of domain: {domain}.')
+            log.debug(f'Computing features of domain: {domain}.')
             transformer_list = _build_transformer_list(feature_functions[domain])
             fu = FeatureUnion(
                 transformer_list=transformer_list,
@@ -83,18 +75,17 @@ def extract_ds_features(
         df = _finalize_df(
             dfs=list(domain_dfs.values()),
         )
-        #one_concat_ds.datasets[0].feature_df = df
-        #del one_concat_ds.datasets[0].raw
-        
+        # overwrite datasets in the concat to mimic inplace operation
         assert len(one_concat_ds.datasets) == 1
         concat_ds.datasets[i] = FeatureDataset(
             feature_df=df, 
             description=one_concat_ds.datasets[0].description,
             target_name=one_concat_ds.datasets[0].target_name,
         )
-        
-        #all_dfs.append(df)
-    #return pd.concat(all_dfs)
+        if out_dir is not None:
+            concat_ds.save(
+                path=out_dir,
+            )
 
 
 def _build_transformer_list(funcs):
