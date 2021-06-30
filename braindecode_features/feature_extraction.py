@@ -207,7 +207,6 @@ def _get_feature_functions(domain=None):
         'Time': [_FunctionTransformer(f) for f in get_time_feature_functions()],
         'Fourier': [_FunctionTransformer(f) for f in get_fourier_feature_functions()],
         'Wavelet': [_FunctionTransformer(f) for f in get_wavelet_feature_functions()],
-#        'Hilbert': [_FunctionTransformer(f) for f in get_hilbert_feature_functions()],
         'Cross-frequency': [_FunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
     }
     if domain is not None:
@@ -232,7 +231,6 @@ def _get_extraction_routines(domain=None):
         'Time': extract_time_features,
         'Fourier': extract_fourier_features,
         'Wavelet': extract_wavelet_features,
-#        'Hilbert': extract_hilbert_features,
         'Cross-frequency': extract_cross_frequency_features,
     }
     if domain is not None:
