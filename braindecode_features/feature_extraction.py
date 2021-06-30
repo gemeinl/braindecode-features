@@ -2,11 +2,12 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
 
 from braindecode_features.domains import *
-from braindecode_features.utils import _initialize_windowing_fn, FeatureDataset
+from braindecode_features.utils import _initialize_windowing_fn, _find_col, FeatureDataset
 
 
 log = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ def extract_ds_features(
     windowing_fn = _initialize_windowing_fn(has_events, windowing_params)
     log.debug(f'got {len(concat_ds.datasets)} datasets')
     all_dfs = []
-    for i in range(len(concat_ds.datasets)):
+    for i in tqdm(range(len(concat_ds.datasets))):
         one_concat_ds = concat_ds.split([i])['0']
         domain_dfs = {}
         # extract features by domain, since each domain has it's very own routine
@@ -75,6 +76,8 @@ def extract_ds_features(
         df = _finalize_df(
             dfs=list(domain_dfs.values()),
         )
+        # account for the position of the dataset in the concat
+        df[_find_col(df, 'Trial')] += i
         # overwrite datasets in the concat to mimic inplace operation
         assert len(one_concat_ds.datasets) == 1
         concat_ds.datasets[i] = FeatureDataset(
@@ -86,6 +89,8 @@ def extract_ds_features(
             concat_ds.save(
                 path=out_dir,
             )
+    # re-compute cumulative sizes for iterating to work
+    concat_ds.cumulative_sizes = concat_ds.cumsum(concat_ds.datasets)
 
 
 def _build_transformer_list(funcs):
@@ -202,7 +207,7 @@ def _get_feature_functions(domain=None):
         'Time': [_FunctionTransformer(f) for f in get_time_feature_functions()],
         'Fourier': [_FunctionTransformer(f) for f in get_fourier_feature_functions()],
         'Wavelet': [_FunctionTransformer(f) for f in get_wavelet_feature_functions()],
-        'Hilbert': [_FunctionTransformer(f) for f in get_hilbert_feature_functions()],
+#        'Hilbert': [_FunctionTransformer(f) for f in get_hilbert_feature_functions()],
         'Cross-frequency': [_FunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
     }
     if domain is not None:
@@ -227,7 +232,7 @@ def _get_extraction_routines(domain=None):
         'Time': extract_time_features,
         'Fourier': extract_fourier_features,
         'Wavelet': extract_wavelet_features,
-        'Hilbert': extract_hilbert_features,
+#        'Hilbert': extract_hilbert_features,
         'Cross-frequency': extract_cross_frequency_features,
     }
     if domain is not None:

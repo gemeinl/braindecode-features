@@ -296,17 +296,28 @@ class FeatureDataset(BaseDataset):
             target_name=target_name,
             transform=None,
         )
-        self.feature_df = feature_df
-        self.raw = range(len(feature_df))  # required for iterating to work
+        self.names = feature_df.columns.to_list()
+        feature_cols = [col for col in self.names if 'Description' not in col]
+        ind_cols = [col for col in self.names if 'Description' in col]
+        ind = feature_df[ind_cols]
+        self.y = ind[[col for col in ind.columns if 'Target' in col]].to_numpy()
+        self.ind_dtypes = ind.dtypes.values
+        self.ind = ind[[col for col in ind.columns if 'Target' not in col]].to_numpy()
+        self.x = feature_df[feature_cols].to_numpy()
     
+    @property
+    def feature_df(self):
+        df = pd.DataFrame(
+            np.concatenate([self.ind, self.y, self.x], axis=1), 
+            columns=self.names)
+        df.columns = pd.MultiIndex.from_tuples(df.columns)
+        dtype_map = {df.columns[i]: self.ind_dtypes[i] 
+                     for i in range(len(self.ind_dtypes))}
+        df = df.astype(dtype_map)
+        return df
+
     def __getitem__(self, index):
-        feature_cols = [col for col in self.feature_df.columns if 'Description' not in col]
-        x = self.feature_df[feature_cols].to_numpy()
-        ind = self.feature_df['Description']
-        y = ind[['Target']].to_numpy()
-        ind_cols = [col for col in ind.columns if 'Target' not in col]
-        ind = ind[ind_cols].squeeze().to_numpy()
-        return x, y, ind
+        return self.x[index], self.y[index], self.ind[index]
         
     def __len__(self):
-        return len(self.feature_df)
+        return len(self.x)

@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 from scipy import stats
+from scipy.signal import hilbert
 
 from braindecode_features.utils import _generate_feature_names, _filter_and_window, _check_df_consistency
 
@@ -58,6 +59,28 @@ def get_time_feature_functions():
         zero_crossings = np.sum((diff[:,:,1:] * diff[:,:,:-1] < 0), axis=axis)
         N = X.shape[axis]
         return np.log10(N) / (np.log10(N) + np.log10(N / (N + 0.4 * zero_crossings)))
+    def phase_locking_value(X):
+        #assert X.ndim == 4, X.shape
+        #X = np.squeeze(X, axis=0)
+        # remove empty first dimension
+        X = hilbert(X, axis=-1)
+        instantatneous_phases = np.unwrap(np.angle(X), axis=-1)
+        plvs = []
+        for ch_i, ch_j in zip(*np.triu_indices(X.shape[-2], k=1)):
+            plv = _phase_locking_value(
+                theta1=instantatneous_phases[:,ch_i],
+                theta2=instantatneous_phases[:,ch_j],
+            )
+            plvs.append(plv)
+        plvs = np.array(plvs).T
+        #plvs = np.expand_dims(plvs, axis=0)
+        return plvs
+    def _phase_locking_value(theta1, theta2):
+        delta = np.subtract(theta1, theta2)
+        xs_mean = np.mean(np.cos(delta), axis=-1)
+        ys_mean = np.mean(np.sin(delta), axis=-1)
+        plv = np.linalg.norm([xs_mean, ys_mean], axis=0)
+        return plv
     def root_mean_square(X): return np.sqrt(np.mean(X*X, axis=-1))
     #def shannon_entropy(X):
         # https://arxiv.org/pdf/2001.08386.pdf
@@ -83,6 +106,7 @@ def get_time_feature_functions():
         kurtosis, line_length, maximum, mean, median, 
         minimum, 
         petrosian_fractal_dimension,
+        phase_locking_value,
         root_mean_square,
         #shannon_entropy,
         skewness, standard_deviation, variance, 
