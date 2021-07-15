@@ -78,6 +78,8 @@ def extract_cross_frequency_features(concat_ds, frequency_bands, fu, windowing_f
             band2 = '-'.join([str(band2[0]), str(band2[1])])
             chs2 = [ch for ch in ds.raw.ch_names if ch.endswith(band2)]
             data2 = ds.raw.get_data(picks=chs2)
+            # TODO: computation of analytical signal can be moved inside feature function
+            # TODO: there are no artifacts when applying to windowed data
             analytical_signal1 = hilbert(data1, axis=-1)
             instantaneous_phases1 = np.angle(analytical_signal1)
             analytical_signal2 = hilbert(data2, axis=-1)
