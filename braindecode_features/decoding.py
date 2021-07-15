@@ -8,7 +8,8 @@ from .utils import _find_col, _aggregate_windows
 
 log = logging.getLogger(__name__)
 
-def prepare_features(df, agg_func=None, windows_as_examples=False):
+
+def prepare_features(df, agg_func=None, windows_as_examples=True):
     """Prepare a feature DataFrame for decoding, i.e., generate X and y, groups,
     and feature names. Thereby, optionally aggregates features by trials.
     Compute windows can either be used as independent examples, or to be
@@ -43,7 +44,8 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     window_col = _find_col(df.columns, 'Window')
     if agg_func is not None:
         if windows_as_examples:
-            log.warning("'windows_as_examples' without effect if 'agg_func' is not None.")
+            log.warning("'windows_as_examples' without effect if 'agg_func' is "
+                        "not None.")
         if window_col not in df.columns or len(set(df[window_col])) == 1:
             log.warning("Data was already aggregated.")
         else:
@@ -57,9 +59,17 @@ def prepare_features(df, agg_func=None, windows_as_examples=False):
     y = df[target_col].to_numpy()
     groups = df[trial_col].to_numpy()
     # feature names start after 'Description' domain
-    feature_names = df.columns[len(df.columns)-len(feature_cols):].to_frame(index=False)
+    feature_names = df.columns[len(df.columns)-len(feature_cols):].to_frame(
+        index=False)
     assert len(feature_names) == X.shape[-1]
     assert X.shape[0] == y.shape[0] == groups.shape[0]
+    corrs = np.array([np.corrcoef(X[:, i], y)[0, 1] for i in range(X.shape[1])])
+    log.info(f"Feature '{'_'.join(feature_names.iloc[corrs.argmax()])}' has "
+             f"the highest correlation of any feature with the target at a "
+             f"value of {corrs.max():.2f}.")
+    if corrs.max() > .5:
+        log.warning('Did you accidentally add the target to the feature matrix'
+                    '?')
     return X, y, groups, feature_names
 
 
@@ -113,8 +123,8 @@ def _examples_from_windows(df):
     n_windows_min = df.groupby(trial_col).tail(1)[window_col].min()
     if variable_length_trials:
         log.warning(f'Found inconsistent numbers of windows. '
-                    f'Will use the minimum number of windows ({n_windows_min+1}) '
-                    f'as maximum.')
+                    f'Will use the minimum number of windows '
+                    f'({n_windows_min+1}) as maximum.')
     new_df = []
     for group_i, ((_, window_i), g) in enumerate(
         df.groupby([trial_col, window_col])):

@@ -1,33 +1,26 @@
 import logging
 
-import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
 
 from braindecode_features.domains import *
-from braindecode_features.utils import _initialize_windowing_fn, _find_col, FeatureDataset
+from braindecode_features.utils import _initialize_windowing_fn
 
 
 log = logging.getLogger(__name__)
 
 
 def extract_ds_features(
-    concat_ds, frequency_bands, windowing_params=None, params=None, 
-    out_dir=None, n_jobs=-1):
+    ds, frequency_bands, windowing_params, params=None, n_jobs=1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
     
     Parameters
     ----------
-    concat_ds: BaseConcatDataset of BaseDataset
+    ds: BaseConcatDataset of BaseDataset
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple(int, int))
         A list of frequency bands of prefiltered signals.
-    windowing_params
-        ...
-    params
-        ...
     n_jobs: int
         Number of processes used for parallelization.
     
@@ -37,60 +30,43 @@ def extract_ds_features(
         The final feature DataFrame holding all features, target information and 
         feature name annotations.
     """
-    assert hasattr(concat_ds.datasets[0], 'raw'), 'Expecting unwindowed data.'
     feature_functions, extraction_routines = _get_feature_functions_and_extraction_routines()
     #if domains is not None:
     #    feature_functions = {domain: feature_functions[domain] for domain in domains}
     #    extraction_routines = {domain: extraction_routines[domain] for domain in domains}
     if params is not None:
         params = _params_to_domain_params(params=params)
-    has_events = len(concat_ds.datasets[0].raw.annotations)
+    has_events = len(ds.datasets[0].raw.annotations)
+    windowing_params.update({'n_jobs': n_jobs})
     windowing_fn = _initialize_windowing_fn(has_events, windowing_params)
-    log.debug(f'got {len(concat_ds.datasets)} datasets')
-    all_dfs = []
-    for i in tqdm(range(len(concat_ds.datasets))):
-        one_concat_ds = concat_ds.split([i])['0']
-        domain_dfs = {}
-        # extract features by domain, since each domain has it's very own routine
-        for domain in extraction_routines.keys():
-            # Do not extract cross-frequency features if there is only one band
-            if len(frequency_bands) == 1 and domain == 'Cross-frequency':
-                continue
-            log.debug(f'Computing features of domain: {domain}.')
-            transformer_list = _build_transformer_list(feature_functions[domain])
-            fu = FeatureUnion(
-                transformer_list=transformer_list,
-                n_jobs=n_jobs,
-            )
-            # set params
-            if params is not None and domain in params:
-                fu.set_params(**params[domain])
-            # extract features of one domain at a time
-            domain_dfs[domain] = extraction_routines[domain](
-                concat_ds=one_concat_ds,
-                frequency_bands=frequency_bands,
-                fu=fu,
-                windowing_fn=windowing_fn,
-            )
-        # concatenate domain dfs and make final df pretty
-        df = _finalize_df(
-            dfs=list(domain_dfs.values()),
+    log.debug(f'got {len(ds.datasets)} datasets')
+    domain_dfs = {}
+    # extract features by domain, since each domain has it's very own routine
+    for domain in extraction_routines.keys():
+        # Do not extract cross-frequency features if there is only one band
+        if len(frequency_bands) == 1 and domain == 'Cross-frequency':
+            continue
+        log.info(f'Computing features of domain: {domain}.')
+        transformer_list = _build_transformer_list(feature_functions[domain])
+        fu = FeatureUnion(
+            transformer_list=transformer_list,
+            n_jobs=n_jobs,
         )
-        # account for the position of the dataset in the concat
-        df[_find_col(df, 'Trial')] += i
-        # overwrite datasets in the concat to mimic inplace operation
-        assert len(one_concat_ds.datasets) == 1
-        concat_ds.datasets[i] = FeatureDataset(
-            feature_df=df, 
-            description=one_concat_ds.datasets[0].description,
-            target_name=one_concat_ds.datasets[0].target_name,
+        # set params
+        if params is not None and domain in params:
+            fu.set_params(**params[domain])
+        # extract features of one domain at a time
+        domain_dfs[domain] = extraction_routines[domain](
+            concat_ds=ds,
+            frequency_bands=frequency_bands,
+            fu=fu,
+            windowing_fn=windowing_fn,
         )
-        if out_dir is not None:
-            concat_ds.save(
-                path=out_dir,
-            )
-    # re-compute cumulative sizes for iterating to work
-    concat_ds.cumulative_sizes = concat_ds.cumsum(concat_ds.datasets)
+    # concatenate domain dfs and make final df pretty
+    df = _finalize_df(
+        dfs=list(domain_dfs.values()),
+    )
+    return df
 
 
 def _build_transformer_list(funcs):
@@ -105,7 +81,8 @@ def _params_to_domain_params(params):
         domain, func, param = p.split('__')
         if '__'.join([func, 'kw_args']) not in params_by_domain[domain]:
             params_by_domain[domain]['__'.join([func, 'kw_args'])] = {}
-        params_by_domain[domain]['__'.join([func, 'kw_args'])].update({param: v})
+        params_by_domain[domain]['__'.join([func, 'kw_args'])].update(
+            {param: v})
     return params_by_domain
 
 
@@ -118,8 +95,8 @@ def _merge_dfs(dfs, on):
 
 
 def _finalize_df(dfs):
-    """Merge feature DataFrames returned by extraction routines to the final DataFrame.
-    This means renaming columns, and creating readible MultiIndex.
+    """Merge feature DataFrames returned by extraction routines to the final
+    DataFrame. This means renaming columns, and creating readible MultiIndex.
     
     Returns
     -------
@@ -136,13 +113,15 @@ def _finalize_df(dfs):
                 'target': 'Target',
                }, axis=1)
     df.columns = pd.MultiIndex.from_tuples(
-        [col.split('__') if '__' in col else ['Description', col, '', ''] for col in df.columns],
+        [col.split('__')
+         if '__' in col else ['Description', col, '', '']
+         for col in df.columns],
         names=['Domain', 'Feature', 'Channel', 'Frequency']
     )
     return df
 
 
-class _FunctionTransformer(FunctionTransformer):
+class _MyFunctionTransformer(FunctionTransformer):
     """Inspired by mne features. Wrap a feature function. Upon call of transform
     save the shape of the input data and output data. Implement a get_feature_names()
     method that returns a list of length corresponding to input channels.
@@ -204,10 +183,11 @@ def _get_feature_functions(domain=None):
         Mapping of feature domain to feature extraction functions.
     """
     feature_functions = {
-        'Time': [_FunctionTransformer(f) for f in get_time_feature_functions()],
-        'Fourier': [_FunctionTransformer(f) for f in get_fourier_feature_functions()],
-        'Wavelet': [_FunctionTransformer(f) for f in get_wavelet_feature_functions()],
-        'Cross-frequency': [_FunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
+        'Time': [_MyFunctionTransformer(f) for f in get_time_feature_functions()],
+        'Fourier': [_MyFunctionTransformer(f) for f in get_fourier_feature_functions()],
+        'Wavelet': [_MyFunctionTransformer(f) for f in get_wavelet_feature_functions()],
+        'Hilbert': [_MyFunctionTransformer(f) for f in get_hilbert_feature_functions()],
+        'Cross-frequency': [_MyFunctionTransformer(f) for f in get_cross_frequency_feature_functions()],
     }
     if domain is not None:
         feature_functions = {domain: feature_functions[domain]}
@@ -231,6 +211,7 @@ def _get_extraction_routines(domain=None):
         'Time': extract_time_features,
         'Fourier': extract_fourier_features,
         'Wavelet': extract_wavelet_features,
+        'Hilbert': extract_hilbert_features,
         'Cross-frequency': extract_cross_frequency_features,
     }
     if domain is not None:

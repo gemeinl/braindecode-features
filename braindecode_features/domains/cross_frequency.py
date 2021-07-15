@@ -2,9 +2,12 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from scipy.signal import hilbert
 
-from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _filter, _concat_ds_and_window, _check_df_consistency
+from braindecode_features.utils import (
+    _generate_feature_names, _get_unfiltered_chs, _filter,
+    _concat_ds_and_window, _check_df_consistency)
 
 
 log = logging.getLogger(__name__)
@@ -65,7 +68,7 @@ def extract_cross_frequency_features(concat_ds, frequency_bands, fu, windowing_f
                           for band_j in range(band_i+1, len(frequency_bands))]
     log.debug(f'will use bands {all_possible_bands}')
     cross_frequency_df = []
-    for ds_i, ds in enumerate(concat_ds.datasets):
+    for ds_i, ds in enumerate(tqdm(concat_ds.datasets)):
         # get names of unfiltered channels
         sensors = _get_unfiltered_chs(ds, frequency_bands)
         f, feature_names = [], []
@@ -78,8 +81,6 @@ def extract_cross_frequency_features(concat_ds, frequency_bands, fu, windowing_f
             band2 = '-'.join([str(band2[0]), str(band2[1])])
             chs2 = [ch for ch in ds.raw.ch_names if ch.endswith(band2)]
             data2 = ds.raw.get_data(picks=chs2)
-            # TODO: computation of analytical signal can be moved inside feature function
-            # TODO: there are no artifacts when applying to windowed data
             analytical_signal1 = hilbert(data1, axis=-1)
             instantaneous_phases1 = np.angle(analytical_signal1)
             analytical_signal2 = hilbert(data2, axis=-1)

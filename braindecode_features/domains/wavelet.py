@@ -2,10 +2,13 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 import pywt
 
-from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _concat_ds_and_window, _check_df_consistency
+from braindecode_features.utils import (
+    _generate_feature_names, _get_unfiltered_chs, _concat_ds_and_window,
+    _check_df_consistency)
 
 
 log = logging.getLogger(__name__)
@@ -22,6 +25,7 @@ def get_wavelet_feature_functions():
         max_c = np.max(X, axis=-1)
         min_c = np.min(X, axis=-1)
         return np.mean(np.divide(abs_sums, max_c - min_c), axis=0)
+
     def maximum(X): return np.mean(np.max(X, axis=-1), axis=0)
     def mean(X): return np.mean(np.mean(X, axis=-1), axis=0)
     def median(X): return np.mean(np.median(X, axis=-1), axis=0)
@@ -62,7 +66,7 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
     central_band = False
     step_width = 1
     cwt_df = []
-    for ds_i, ds in enumerate(concat_ds.datasets):
+    for ds_i, ds in enumerate(tqdm(concat_ds.datasets)):
         sfreq = ds.raw.info['sfreq']
         # for cwt features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)
@@ -76,7 +80,7 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
             else:
                 pseudo_freqs = np.linspace(l_freq, h_freq, num=int((h_freq-l_freq)/step_width)+1)
             if ds_i == 0:
-                log.debug(f'Using scales corresponding to pseudo frequencies: {pseudo_freqs}.')
+                log.info(f'Using scales corresponding to pseudo frequencies: {pseudo_freqs}.')
             # generate scales from chosen frequencies above
             scales = [_freq_to_scale(freq, w, sfreq) for freq in pseudo_freqs]
             # transformt the signals using cwt

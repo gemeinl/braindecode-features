@@ -2,10 +2,11 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from scipy import stats
-from scipy.signal import hilbert
 
-from braindecode_features.utils import _generate_feature_names, _filter_and_window, _check_df_consistency
+from braindecode_features.utils import (
+    _generate_feature_names, _filter_and_window, _check_df_consistency)
 
 
 log = logging.getLogger(__name__)
@@ -22,7 +23,9 @@ def get_time_feature_functions():
         # ignore variance on diagonal, it is a feature itself
         covs_triu = [cov[np.triu_indices(cov.shape[-2], k=int(not include_diag))] for cov in covs]
         return np.array(covs_triu)
+
     def energy(X): return np.mean(X*X, axis=-1)
+
     def higuchi_fractal_dimension(X, kmax):
         # multi-dim version tested vs 1d version of pyeeg, 1e-5 max difference
         # http://pyeeg.sourceforge.net/
@@ -44,43 +47,25 @@ def get_time_feature_functions():
             (p, r1, r2, s) = np.linalg.lstsq(x, L[:,i,:], rcond=None)
             ps.append(p[0,:])
         return np.array(ps)
-    def interquartile_range(X, q=75): 
+
+    def interquartile_range(X, q=75):
         q1, q2 = np.percentile(X, [q, 100-q], axis=-1)
         return q2 - q1
+
     def kurtosis(X): return stats.kurtosis(X, axis=-1)
     def line_length(X): return np.sum(np.abs(np.diff(X, axis=-1)), axis=-1)
     def maximum(X): return np.max(X, axis=-1)
     def mean(X): return np.mean(X, axis=-1)
     def median(X): return np.median(X, axis=-1)
     def minimum(X): return np.min(X, axis=-1)
+
     def petrosian_fractal_dimension(X, axis=-1):
         # https://raphaelvallat.com/entropy/build/html/generated/entropy.petrosian_fd.html
         diff = np.diff(X)
         zero_crossings = np.sum((diff[:,:,1:] * diff[:,:,:-1] < 0), axis=axis)
         N = X.shape[axis]
         return np.log10(N) / (np.log10(N) + np.log10(N / (N + 0.4 * zero_crossings)))
-    def phase_locking_value(X):
-        #assert X.ndim == 4, X.shape
-        #X = np.squeeze(X, axis=0)
-        # remove empty first dimension
-        X = hilbert(X, axis=-1)
-        instantatneous_phases = np.unwrap(np.angle(X), axis=-1)
-        plvs = []
-        for ch_i, ch_j in zip(*np.triu_indices(X.shape[-2], k=1)):
-            plv = _phase_locking_value(
-                theta1=instantatneous_phases[:,ch_i],
-                theta2=instantatneous_phases[:,ch_j],
-            )
-            plvs.append(plv)
-        plvs = np.array(plvs).T
-        #plvs = np.expand_dims(plvs, axis=0)
-        return plvs
-    def _phase_locking_value(theta1, theta2):
-        delta = np.subtract(theta1, theta2)
-        xs_mean = np.mean(np.cos(delta), axis=-1)
-        ys_mean = np.mean(np.sin(delta), axis=-1)
-        plv = np.linalg.norm([xs_mean, ys_mean], axis=0)
-        return plv
+
     def root_mean_square(X): return np.sqrt(np.mean(X*X, axis=-1))
     #def shannon_entropy(X):
         # https://arxiv.org/pdf/2001.08386.pdf
@@ -88,12 +73,14 @@ def get_time_feature_functions():
         # see https://www.interscience.in/cgi/viewcontent.cgi?article=1175&context=ijcct
         # for time domain
         #return -np.sum(X * np.log2(X), axis=-1)
+
     def skewness(X): return stats.skew(X, axis=-1)
     def standard_deviation(X): return np.std(X, axis=-1)
     def value_range(X): return np.ptp(X, axis=-1)
     def variance(X): return np.var(X, axis=-1)
     def zero_crossings(X): return np.sum(((X[:,:,1:] * X[:,:,:-1]) < 0), axis=-1)
-    def zero_crossings_derivative(X): 
+
+    def zero_crossings_derivative(X):
         diff = np.diff(X, axis=-1)
         return np.sum(((diff[:,:,1:] * diff[:,:,:-1]) < 0), axis=-1)
     
@@ -106,9 +93,8 @@ def get_time_feature_functions():
         kurtosis, line_length, maximum, mean, median, 
         minimum, 
         petrosian_fractal_dimension,
-        phase_locking_value,
         root_mean_square,
-        #shannon_entropy,
+        # shannon_entropy,
         skewness, standard_deviation, variance, 
         zero_crossings,
         zero_crossings_derivative,
@@ -148,7 +134,7 @@ def extract_time_features(concat_ds, frequency_bands, fu, windowing_fn):
         all_band_channels.append([ch for ch in windows_ds.datasets[0].windows.ch_names 
                                   if ch.endswith(frequency_band)])
     time_df = []
-    for ds_i, ds in enumerate(windows_ds.datasets):
+    for ds_i, ds in enumerate(tqdm(windows_ds.datasets)):
         # for time domain features only consider the signals filtered in time domain
         #filtered_channels = [ch for ch in ds.windows.ch_names if ch not in sensors]    
         f, feature_names = [], []
