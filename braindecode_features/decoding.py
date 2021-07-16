@@ -64,7 +64,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=True):
     assert len(feature_names) == X.shape[-1]
     assert X.shape[0] == y.shape[0] == groups.shape[0]
     corrs = np.array([np.corrcoef(X[:, i], y)[0, 1] for i in range(X.shape[1])])
-    log.info(f"Feature '{'_'.join(feature_names.iloc[corrs.argmax()])}' has "
+    log.info(f"Feature '{'__'.join(feature_names.iloc[corrs.argmax()])}' has "
              f"the highest correlation of any feature with the target at a "
              f"value of {corrs.max():.2f}.")
     if corrs.max() > .5:
@@ -101,7 +101,7 @@ def score(score_func, y, y_pred, y_groups=None):
     trial_pred, trial_y = [], []
     for n, g in pd.DataFrame(pred_df).groupby('group'):
         trial_pred.append(g.pred.value_counts().idxmax())  # TODO: verify
-        assert len(g.y.unique()) == 1
+        assert len(g.y.unique()) == 1, 'group labels are inconsistent'
         trial_y.append(g.y.value_counts().idxmax())    
     trial_pred = np.array(trial_pred)
     trial_y = np.array(trial_y)

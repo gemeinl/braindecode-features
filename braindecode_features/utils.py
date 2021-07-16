@@ -285,7 +285,9 @@ def _check_df_consistency(df):
     +/- inf, None or NaN."""
     # TODO: their might be a tuple inside the target column which will
     # TODO: cause checks below to fail
-    feature_cols = df.columns[3:]  # TODO: do not hardcode this
+    # feature columns are all those that have 4 values (corresponding to domain,
+    # feature, electrode, frequency band) separated by '__'
+    feature_cols = [c for c in df.columns if len(c.split('__')) == 4]
     assert not pd.isna(df[feature_cols].values).any()
     assert not pd.isnull(df[feature_cols].values).any()
     assert np.abs(df[feature_cols].values).max() < np.inf
