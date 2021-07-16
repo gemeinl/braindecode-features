@@ -2,10 +2,13 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 import pywt
 
-from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _concat_ds_and_window, _check_df_consistency
+from braindecode_features.utils import (
+    _generate_feature_names, _get_unfiltered_chs, _concat_ds_and_window,
+    _check_df_consistency)
 
 
 log = logging.getLogger(__name__)
@@ -22,6 +25,7 @@ def get_wavelet_feature_functions():
         max_c = np.max(X, axis=-1)
         min_c = np.min(X, axis=-1)
         return np.mean(np.divide(abs_sums, max_c - min_c), axis=0)
+
     def maximum(X): return np.mean(np.max(X, axis=-1), axis=0)
     def mean(X): return np.mean(np.mean(X, axis=-1), axis=0)
     def median(X): return np.mean(np.median(X, axis=-1), axis=0)
@@ -31,9 +35,17 @@ def get_wavelet_feature_functions():
     def value_range(X): return np.mean(np.ptp(X, axis=-1), axis=0)
     def variance(X): return np.mean(np.var(X, axis=-1), axis=0)
     
-
-    funcs = [bounded_variation, maximum, mean, median, minimum, power, 
-             standard_deviation, value_range, variance]
+    funcs = [
+        bounded_variation,
+        maximum,
+        mean,
+        median,
+        minimum,
+        power,
+        standard_deviation,
+        value_range,
+        variance,
+    ]
     return funcs
 
 
@@ -54,15 +66,15 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
     Returns
     -------
     cwt_df: DataFrame
-        The wavelet domain feature DataFrame including target information and feature 
-        name annotations.
+        The wavelet domain feature DataFrame including target information and
+        feature name annotations.
     """
     log.debug('Extracting ...')
     w = 'morl'
     central_band = False
     step_width = 1
     cwt_df = []
-    for ds_i, ds in enumerate(concat_ds.datasets):
+    for ds_i, ds in enumerate(tqdm(concat_ds.datasets)):
         sfreq = ds.raw.info['sfreq']
         # for cwt features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)
@@ -74,14 +86,18 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
                 pseudo_freqs = [(h_freq + l_freq)/2]
             # or use multiple scales between highpass and lowpass
             else:
-                pseudo_freqs = np.linspace(l_freq, h_freq, num=int((h_freq-l_freq)/step_width)+1)
+                pseudo_freqs = np.linspace(
+                    l_freq, h_freq, num=int((h_freq-l_freq)/step_width)+1)
             if ds_i == 0:
-                log.debug(f'Using scales corresponding to pseudo frequencies: {pseudo_freqs}.')
+                log.info(f'Using scales corresponding to pseudo frequencies: '
+                         f'{pseudo_freqs}.')
             # generate scales from chosen frequencies above
             scales = [_freq_to_scale(freq, w, sfreq) for freq in pseudo_freqs]
             # transformt the signals using cwt
-            transforms, _ = pywt.cwt(data, scales=scales, wavelet=w, sampling_period=1/sfreq)
-            # iterate scales of transform and create one windows_ds for every one
+            transforms, _ = pywt.cwt(
+                data, scales=scales, wavelet=w, sampling_period=1/sfreq)
+            # iterate scales of transform and create one windows_ds for every
+            # one
             transform = []
             for transform_scale in transforms:
                 windows_ds = _concat_ds_and_window(
@@ -92,13 +108,15 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
                 )
                 transform.append(windows_ds.datasets[0].windows.get_data())
             transform = np.array(transform)
-            log.debug(f'wavelet in {l_freq} – {h_freq} before union {transform.shape}')
+            log.debug(f'wavelet in {l_freq} – {h_freq} before union '
+                      f'{transform.shape}')
             # call all features in the union
             f.append(fu.fit_transform(transform).astype(np.float32))
             # first, manually add the frequency band to the used channel names
             # then generate feature names
             feature_names.append(_generate_feature_names(
-                fu, ['__'.join([ch, '-'.join([str(l_freq), str(h_freq)])]) for ch in sensors]
+                fu, ['__'.join([ch, '-'.join([str(l_freq), str(h_freq)])])
+                     for ch in sensors]
             ))
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
@@ -108,9 +126,10 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
         cwt_df.append(
             pd.concat([
                 # add dataset_id to be able to backtrack
-                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
+                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equiv Trial?
                 # add trial and target info to features
-                windows_ds.datasets[0].windows.metadata[['i_window_in_trial', 'target']], 
+                windows_ds.datasets[0].windows.metadata[
+                    ['i_window_in_trial', 'target']],
                 # create a dataframe of feature values and feature names
                 pd.DataFrame(f, columns=feature_names)
             ], axis=1)

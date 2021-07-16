@@ -2,8 +2,11 @@ import logging
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
-from braindecode_features.utils import _generate_feature_names, _get_unfiltered_chs, _window, _check_df_consistency
+from braindecode_features.utils import (
+    _generate_feature_names, _get_unfiltered_chs, _window,
+    _check_df_consistency)
 
 
 log = logging.getLogger(__name__)
@@ -17,18 +20,29 @@ def get_fourier_feature_functions():
     def mean(transform): return np.mean(np.abs(transform), axis=-1)
     def median(transform): return np.median(np.abs(transform), axis=-1)
     def minimum(transform): return np.min(np.abs(transform), axis=-1)
+
     def peak_frequency(transform):
         amplitudes = np.abs(transform)
         return np.argmax(amplitudes, axis=-1)
-    def power(transform): 
+
+    def power(transform):
         return np.sum(np.abs(transform)*np.abs(transform), axis=-1)
+
     def standard_deviation(transform): return np.std(np.abs(transform), axis=-1)
     def value_range(transform): return np.ptp(np.abs(transform), axis=-1)
     def variance(transform): return np.var(np.abs(transform), axis=-1)
     
     funcs = [
-        maximum, mean, median, minimum, peak_frequency, power, 
-        standard_deviation, value_range, variance]
+        maximum,
+        mean,
+        median,
+        minimum,
+        peak_frequency,
+        power,
+        standard_deviation,
+        value_range,
+        variance,
+    ]
     return funcs
 
 
@@ -48,8 +62,8 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
     Returns
     -------
     dft_df: DataFrame
-        The Fourier domain feature DataFrame including target information and feature 
-        name annotations.
+        The Fourier domain feature DataFrame including target information and
+        feature name annotations.
     """
     windows_ds = _window(
         ds=concat_ds,
@@ -57,7 +71,7 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
     )
     log.debug('Extracting ...')
     dft_df = []
-    for ds_i, ds in enumerate(windows_ds.datasets):
+    for ds_i, ds in enumerate(tqdm(windows_ds.datasets)):
         sfreq = ds.windows.info['sfreq']
         # for dft features only consider the signals that were not yet filtered
         sensors = _get_unfiltered_chs(ds, frequency_bands)
@@ -74,17 +88,20 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
             # select the frequency bins that best fit the chosen frequency bands
             l_id = np.argmin(np.abs(bins-l_freq))
             h_id = np.argmin(np.abs(bins-h_freq))
-            if ds_i == 0 and (bins[l_id] - l_freq != 0 or bins[h_id] - h_freq != 0):
+            if ds_i == 0 and (bins[l_id] - l_freq != 0 or
+                              bins[h_id] - h_freq != 0):
                 bin_width = bins[1]-bins[0]
-                log.debug(f'Am supposed to pick bins between {l_freq} and {h_freq} which is '
-                          f'impossible. Will use the bins closest to your selection instead: '
-                          f'{l_id*bin_width} – {h_id*bin_width}.')
+                log.info(f'Am supposed to pick bins between {l_freq} and '
+                         f'{h_freq} which is impossible. Will use the bins '
+                         f'closest to your selection instead: '
+                         f'{l_id*bin_width} – {h_id*bin_width}.')
             # get the data and the bins
-            #data = (transform[:,:,l_id:h_id+1], bins[l_id:h_id+1])
+            # data = (transform[:,:,l_id:h_id+1], bins[l_id:h_id+1])
             all_data.append(transform[:,:,l_id:h_id+1])
         
         # is this too much magic?
-        # for transf in transformer list, if hasattr frequency bins, set param to initialize it
+        # for transf in transformer list, if hasattr frequency bins, set param
+        # to initialize it
         # [hasattr(t, 'transform') for n, t in fu.transformer_list]
         
         for data, (l_freq, h_freq) in zip(all_data, frequency_bands):
@@ -94,7 +111,8 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
             # first, manually add the frequency band to the used channel names
             # then generate feature names
             feature_names.append(_generate_feature_names(
-                fu, ['__'.join([ch, '-'.join([str(l_freq), str(h_freq)])]) for ch in sensors]
+                fu, ['__'.join([ch, '-'.join([str(l_freq), str(h_freq)])])
+                     for ch in sensors]
             ))
         # concatenate frequency band feature and names in the identical way
         f = np.concatenate(f, axis=-1)
@@ -104,7 +122,7 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
         dft_df.append(
             pd.concat([
                 # add dataset_id to be able to backtrack
-                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equivalent to Trial?
+                # pd.DataFrame({'Dataset': len(ds) * [ds_i]}),  # equiv Trial?
                 # add trial and target info to features
                 ds.windows.metadata[['i_window_in_trial', 'target']], 
                 # create a dataframe of feature values and feature names

@@ -10,8 +10,9 @@ log = logging.getLogger(__name__)
 
         
 def filter_df(df, query, exact_match=False, level_to_consider=None):
-    """Filter the MultiIndex of a DataFrame wrt 'query'. Thereby, columns required
-    for decoding, i.e., 'Target', 'Trial', 'Window' are always preserved.
+    """Filter the MultiIndex of a DataFrame wrt 'query'. Thereby, columns r
+    equired for decoding, i.e., 'Target', 'Trial', 'Window' are always
+    preserved.
 
     Parameters
     ----------
@@ -60,7 +61,8 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
 
 
 def add_description(df, description, name):
-    """Add a custom column with 'name' to the description section of the DataFrame.
+    """Add a custom column with 'name' to the description section of the
+    DataFrame.
     
     Parameters
     ----------
@@ -114,22 +116,23 @@ def drop_window(df, window_i):
 
 
 def _generate_feature_names(fu, ch_names):
-    """From the feature names returned by the feature functions through the feature union,
-    replace the unknown channels indicated by ids (ch0 or ch0-ch13) with their actual names.
+    """From the feature names returned by the feature functions through the
+    feature union, replace the unknown channels indicated by ids
+    (ch0 or ch0-ch13) with their actual names.
     
     Parameters
     ----------
     fu: FeatureUnion
         Scikit-learn FeatureUnion of FunctionTransformers extracting features.
     ch_names: list
-        List of original channel names that will be inserted into the feature names
-        returned by the union.
+        List of original channel names that will be inserted into the feature
+        names returned by the union.
     
     Returns
     -------
     feature_names: list
-        List of feature names including channel(s), frequency band(s), feature domain 
-        and feature type.
+        List of feature names including channel(s), frequency band(s), feature
+        domain and feature type.
     """
     feature_names = fu.get_feature_names()
     mapping = {f'ch{i}': ch for i, ch in enumerate(ch_names)}
@@ -198,17 +201,19 @@ def _filter_and_window(ds, frequency_bands, windowing_fn):
 
 
 def _filter(ds, frequency_bands):
-    """Filter signals in a BaseConcatDataset of BaseDataset in time domain to given
-    frequency ranges."""
+    """Filter signals in a BaseConcatDataset of BaseDataset in time domain to
+     given frequency ranges."""
     from braindecode.preprocessing import Preprocessor, preprocess, filterbank
     # check whether filtered signals already exist
-    frequency_bands_str = ['-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
+    frequency_bands_str = ['-'.join([str(b[0]), str(b[1])])
+                           for b in frequency_bands]
     all_band_channels = []
     for frequency_band in frequency_bands_str:
         # pick all channels corresponding to a single frequency band
         all_band_channels.append([ch for ch in ds.datasets[0].raw.ch_names 
                                   if ch.endswith(frequency_band)])
-    # If we cannot find all the bands in the channel names annotations, we have to filter.
+    # If we cannot find all the bands in the channel names annotations, we
+    # have to filter.
     if not all(all_band_channels):
         log.debug('Filtering ...')
         preprocess(
@@ -237,8 +242,6 @@ def _window(ds, windowing_fn):
 
 def _initialize_windowing_fn(has_events, windowing_params):
     """Set windowing params to the appropriate windowing function."""
-    if windowing_params is None:
-        windowing_params = {}
     from braindecode.preprocessing import (
         create_windows_from_events, create_fixed_length_windows)
     if has_events:
@@ -260,7 +263,10 @@ def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
     raw = ds.raw.copy()
     raw = raw.pick_channels(band_channels)
     raw._data = data
-    target_name = ds.target_name if isinstance(ds.target_name, str) else tuple(ds.target_name)
+    if ds.target_name is not None and not isinstance(ds.target_name, str):
+        target_name = tuple(ds.target_name)
+    else:
+        target_name = ds.target_name
     concat_ds = BaseConcatDataset([
         BaseDataset(
             raw=raw, 
@@ -277,7 +283,7 @@ def _concat_ds_and_window(ds, data, windowing_fn, band_channels):
 def _check_df_consistency(df):
     """Make sure the feature DataFrames do not contain illegal values like 
     +/- inf, None or NaN."""
-    # TODO: their might be a tuple inside the target column which will 
+    # TODO: their might be a tuple inside the target column which will
     # TODO: cause checks below to fail
     feature_cols = df.columns[3:]  # TODO: do not hardcode this
     assert not pd.isna(df[feature_cols].values).any()
@@ -285,13 +291,15 @@ def _check_df_consistency(df):
     assert np.abs(df[feature_cols].values).max() < np.inf
 
 
+'''In case we decide to create a FeatureDataset
 from braindecode.datasets import BaseDataset
 class FeatureDataset(BaseDataset):
     """
     """
+
     def __init__(self, feature_df, description=None, target_name=None):
         super().__init__(
-            raw=None, 
+            raw=None,
             description=description,
             target_name=target_name,
             transform=None,
@@ -302,22 +310,24 @@ class FeatureDataset(BaseDataset):
         ind = feature_df[ind_cols]
         self.y = ind[[col for col in ind.columns if 'Target' in col]].to_numpy()
         self.ind_dtypes = ind.dtypes.values
-        self.ind = ind[[col for col in ind.columns if 'Target' not in col]].to_numpy()
+        self.ind = ind[
+            [col for col in ind.columns if 'Target' not in col]].to_numpy()
         self.x = feature_df[feature_cols].to_numpy()
-    
+
     @property
     def feature_df(self):
         df = pd.DataFrame(
-            np.concatenate([self.ind, self.y, self.x], axis=1), 
+            np.concatenate([self.ind, self.y, self.x], axis=1),
             columns=self.names)
         df.columns = pd.MultiIndex.from_tuples(df.columns)
-        dtype_map = {df.columns[i]: self.ind_dtypes[i] 
+        dtype_map = {df.columns[i]: self.ind_dtypes[i]
                      for i in range(len(self.ind_dtypes))}
         df = df.astype(dtype_map)
         return df
 
     def __getitem__(self, index):
         return self.x[index], self.y[index], self.ind[index]
-        
+
     def __len__(self):
         return len(self.x)
+'''

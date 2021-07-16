@@ -58,7 +58,8 @@ def read_features(path, agg_func=None, n_jobs=1):
         key=lambda p: int(os.path.splitext(os.path.basename(p))[0])
     )
     log.debug(f'reading {len(file_paths)} files')
-    dfs = Parallel(n_jobs=n_jobs)(delayed(_read_and_aggregate)(p, agg_func) for p in file_paths)
+    dfs = Parallel(n_jobs=n_jobs)(delayed(_read_and_aggregate)(p, agg_func)
+                                  for p in file_paths)
     dfs = pd.concat(dfs).reset_index(drop=True)
     return dfs
 
