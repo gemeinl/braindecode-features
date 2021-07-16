@@ -60,7 +60,7 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
     return df[multiindex]
 
 
-def add_description(df, description, name):
+def add_description(df, description, name, dtype=None):
     """Add a custom column with 'name' to the description section of the
     DataFrame.
     
@@ -78,6 +78,12 @@ def add_description(df, description, name):
     `pd.DataFrame`
         A DataFrame that includes the column ('Description', name, '', '').
     """
+    dtype_ = np.float32
+    if dtype is not None:
+        assert dtype in [np.float32, np.int64], (
+            f'dtype {dtype} not supported. Please convert fo float32 or int64.')
+        dtype_ = dtype
+    description = np.array(description, dtype=dtype_)
     df_ = pd.DataFrame(
         description, 
         columns=pd.MultiIndex.from_tuples([('Description', name, '', '')])
@@ -286,8 +292,17 @@ def _check_df_consistency(df):
     # TODO: their might be a tuple inside the target column which will
     # TODO: cause checks below to fail
     # feature columns are all those that have 4 values (corresponding to domain,
-    # feature, electrode, frequency band) separated by '__'
-    feature_cols = [c for c in df.columns if len(c.split('__')) == 4]
+    # feature, electrode, frequency band) either in a tuple or as a string
+    # separated by '__'
+    feature_cols = []
+    for c in df.columns:
+        if isinstance(c, tuple):
+            if len(c) == 4:
+                feature_cols.append(c)
+        else:
+            assert isinstance(c, str)
+            if len(c.split('__')) == 4:
+                feature_cols.append(c)
     assert not pd.isna(df[feature_cols].values).any()
     assert not pd.isnull(df[feature_cols].values).any()
     assert np.abs(df[feature_cols].values).max() < np.inf
