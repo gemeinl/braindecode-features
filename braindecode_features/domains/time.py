@@ -176,6 +176,8 @@ def extract_time_features(concat_ds, frequency_bands, fu, windowing_fn):
         # ch for ch in ds.windows.ch_names if ch not in sensors]
         f, feature_names = [], []
         # TODO: do all bands at the same time?
+        # TODO: no, already memory issues. we probably have to add item=index
+        # below to extract features of one window at a time....
         # get the band data
         all_data = np.array([ds.windows.get_data(picks=band_channels) 
                              for band_channels in all_band_channels])

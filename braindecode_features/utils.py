@@ -306,6 +306,8 @@ def _check_df_consistency(df):
     assert not pd.isna(df[feature_cols].values).any()
     assert not pd.isnull(df[feature_cols].values).any()
     assert np.abs(df[feature_cols].values).max() < np.inf
+    # TODO: add check for float int features
+#    assert all([dt in ['float32', 'int64'] for dt in df[feature_cols].dtypes])
 
 
 '''In case we decide to create a FeatureDataset
