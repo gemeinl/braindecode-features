@@ -7,14 +7,20 @@ from scipy.signal import hilbert
 
 from braindecode_features.utils import (
     _generate_feature_names, _get_unfiltered_chs, _filter,
-    _concat_ds_and_window, _check_df_consistency)
+    _concat_ds_and_window, _check_df_consistency, _select_funcs)
 
 
 log = logging.getLogger(__name__)
 
 
-def get_cross_frequency_feature_functions():
-    """Get feature functions of the cross-frequency domain."""
+def get_cross_frequency_feature_functions(include=None, exclude=None):
+    """Get feature functions of the cross-frequency domain.
+
+    Params
+    ------
+    include: list
+    exclude: list
+    """
     # TODO klassisch: theta zu gamma band
     def cross_frequency_coupling(data1_n_data2):
         # loosely following
@@ -37,6 +43,7 @@ def get_cross_frequency_feature_functions():
     funcs = [
         cross_frequency_coupling,
     ]
+    funcs = _select_funcs(funcs, include=include, exclude=exclude)
     return funcs
 
 

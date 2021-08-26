@@ -14,7 +14,7 @@ from braindecode_features.utils import (
     filter_df, drop_window, add_description, _window, _read_and_aggregate,
     _initialize_windowing_fn, _get_unfiltered_chs, _generate_feature_names,
     _find_col, _filter_and_window, _filter, _concat_ds_and_window,
-    _check_df_consistency, _aggregate_windows)
+    _check_df_consistency, _aggregate_windows, _select_funcs)
 
 
 def test_check_df_consistency():
@@ -403,3 +403,29 @@ def test_drop_window():
         columns=columns,
     )
     pd.testing.assert_frame_equal(expected_df, df)
+
+
+def test_select_funcs():
+    funcs = [np.mean, np.median, np.var]
+    selected_funcs = _select_funcs(funcs)
+    assert len(selected_funcs) == len(funcs)
+    assert funcs == selected_funcs
+
+    selected_funcs = _select_funcs(funcs, include=['var', 'mean'])
+    assert len(selected_funcs) == 2
+    assert selected_funcs[0].__name__ == 'mean'
+    assert selected_funcs[1].__name__ == 'var'
+
+    selected_funcs = _select_funcs(funcs, exclude=['mean', 'median'])
+    assert len(selected_funcs) == 1
+    assert selected_funcs[0].__name__ == 'var'
+
+    with pytest.raises(ValueError, match='Can either include or exclude speci'):
+        _ = _select_funcs(funcs, include=['mean'], exclude=['median'])
+
+    with pytest.raises(ValueError, match='You specified unknown functions'):
+        _ = _select_funcs(funcs, include=['test'])
+
+    selected_funcs = _select_funcs(funcs, include='median')
+    assert len(selected_funcs) == 1
+    assert selected_funcs[0].__name__ == 'median'

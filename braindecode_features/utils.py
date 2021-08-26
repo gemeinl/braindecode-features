@@ -381,3 +381,33 @@ class FeatureDataset(BaseDataset):
     def __len__(self):
         return len(self.x)
 '''
+
+
+def _select_funcs(funcs, include=None, exclude=None):
+    """Select/exclude specific feature functions."""
+    if include is None and exclude is None:
+        return funcs
+    if include is not None and exclude is not None:
+        raise ValueError('Can either include or exclude specific functions.'
+                         ' Please make a decision.')
+    func_names = [f.__name__ for f in funcs]
+    print(func_names)
+    selection = sorted(func_names)
+    if include is not None:
+        if isinstance(include, str):
+            include = [include]
+        selection = sorted(include)
+    if exclude is not None:
+        if isinstance(exclude, str):
+            exclude = [exclude]
+        selection = sorted(exclude)
+    print(selection)
+    if not all([f in func_names for f in selection]):
+        raise ValueError('You specified unknown functions.')
+    sel_funcs = []
+    for f in funcs:
+        if include is not None and f.__name__ in selection:
+            sel_funcs.append(f)
+        if exclude is not None and f.__name__ not in selection:
+            sel_funcs.append(f)
+    return sel_funcs

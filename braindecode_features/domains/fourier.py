@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -6,15 +7,20 @@ from tqdm import tqdm
 
 from braindecode_features.utils import (
     _generate_feature_names, _get_unfiltered_chs, _window,
-    _check_df_consistency)
+    _check_df_consistency, _select_funcs)
 
 
 log = logging.getLogger(__name__)
 
 
-def get_fourier_feature_functions():
-    """Get feature functions of the Fourier domain."""
-    # DFT
+def get_fourier_feature_functions(include=None, exclude=None):
+    """Get feature functions of the Fourier domain.
+
+    Params
+    ------
+    include: list
+    exclude: list
+    """
     # TODO: add spectral entropy?
     def maximum(transform): return np.max(np.abs(transform), axis=-1)
     def mean(transform): return np.mean(np.abs(transform), axis=-1)
@@ -43,6 +49,7 @@ def get_fourier_feature_functions():
         value_range,
         variance,
     ]
+    funcs = _select_funcs(funcs, include=include, exclude=exclude)
     return funcs
 
 
@@ -91,10 +98,11 @@ def extract_fourier_features(concat_ds, frequency_bands, fu, windowing_fn):
             if ds_i == 0 and (bins[l_id] - l_freq != 0 or
                               bins[h_id] - h_freq != 0):
                 bin_width = bins[1]-bins[0]
-                log.info(f'Am supposed to pick bins between {l_freq} and '
-                         f'{h_freq} which is impossible. Will use the bins '
-                         f'closest to your selection instead: '
-                         f'{l_id*bin_width} – {h_id*bin_width}.')
+                warnings.warn(f'Am supposed to pick bins between {l_freq} and '
+                              f'{h_freq} which is impossible. Will use the bins'
+                              f' closest to your selection instead: '
+                              f'{l_id*bin_width} – {h_id*bin_width}.',
+                              UserWarning)
             # get the data and the bins
             # data = (transform[:,:,l_id:h_id+1], bins[l_id:h_id+1])
             all_data.append(transform[:,:,l_id:h_id+1])

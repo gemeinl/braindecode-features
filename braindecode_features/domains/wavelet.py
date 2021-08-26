@@ -8,15 +8,20 @@ import pywt
 
 from braindecode_features.utils import (
     _generate_feature_names, _get_unfiltered_chs, _concat_ds_and_window,
-    _check_df_consistency)
+    _check_df_consistency, _select_funcs)
 
 
 log = logging.getLogger(__name__)
 
 
-def get_wavelet_feature_functions():
-    """Get feature functions of the wavelet domain."""
-    # CWT
+def get_wavelet_feature_functions(include=None, exclude=None):
+    """Get feature functions of the wavelet domain.
+
+    Params
+    ------
+    include: list
+    exclude: list
+    """
     def bounded_variation(X):
         # https://sci-hub.se/10.1109/issnip.2008.4762005, p310, 5)
         # is this correct? what is mean with 'wavelet band signals'?
@@ -46,6 +51,7 @@ def get_wavelet_feature_functions():
         value_range,
         variance,
     ]
+    funcs = _select_funcs(funcs, include=include, exclude=exclude)
     return funcs
 
 

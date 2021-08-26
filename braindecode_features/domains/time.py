@@ -12,14 +12,21 @@ import nolds
 import antropy
 
 from braindecode_features.utils import (
-    _generate_feature_names, _filter_and_window, _check_df_consistency)
+    _generate_feature_names, _filter_and_window, _check_df_consistency,
+    _select_funcs)
 
 
 log = logging.getLogger(__name__)
 
 
-def get_time_feature_functions():
-    """Get feature functions of time domain."""
+def get_time_feature_functions(include=None, exclude=None):
+    """Get feature functions of time domain.
+
+    Params
+    ------
+    include: list
+    exclude: list
+    """
     # helper functions
     def derive(X):
         return np.diff(X, axis=-1)
@@ -229,7 +236,7 @@ def get_time_feature_functions():
         approximate_entropy,
         correlation_dimension,
         covariance,
-        # detrended_fluctuation_analysis,  # slow
+        detrended_fluctuation_analysis,  # slow
         energy,
         # fisher_information,  # not implemented
         higuchi_fractal_dimension,
@@ -240,7 +247,7 @@ def get_time_feature_functions():
         katz_fractal_dimension,
         kurtosis,
         line_length,
-        # lyauponov_exponent,  # slow
+        lyauponov_exponent,  # slow
         lziv_complexity,
         maximum,
         mean,
@@ -253,12 +260,13 @@ def get_time_feature_functions():
         # sample_entropy,  # broken, gives infinity or NaN
         skewness,
         standard_deviation,
-        # svd_entropy,  # slow
+        svd_entropy,  # slow
         value_range,
         variance,
         zero_crossings,
         zero_crossings_derivative,
     ]
+    funcs = _select_funcs(funcs, include=include, exclude=exclude)
     return funcs
 
 
