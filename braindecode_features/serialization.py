@@ -21,10 +21,6 @@ def save_features(df, out_path):
     out_path: str
         The path to the root directory in which 'h5' files will be stored.
     """
-    # under out_path create a subdirectory wrt subject_id and split_name 
-    #out_p = os.path.join(out_path, str(subject_id), split_name)
-    #if not os.path.exists(out_p):
-    #    os.makedirs(out_p)
     trial_col = _find_col(df.columns, 'Trial')
     for trial, feats in df.groupby(trial_col):
         # store as hdf files, since reading is much faster than csv

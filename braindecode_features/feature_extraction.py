@@ -87,7 +87,7 @@ def _params_to_domain_params(params):
 
 
 def _merge_dfs(dfs, on):
-    """Merge several (> 2) DataFrames on the same columns."""
+    """Merge several a list of DataFrames on the specified columns."""
     df = dfs[0]
     for df_ in dfs[1:]:
         df = pd.merge(df_, df, on=on)
@@ -96,7 +96,7 @@ def _merge_dfs(dfs, on):
 
 def _finalize_df(dfs):
     """Merge feature DataFrames returned by extraction routines to the final
-    DataFrame. This means renaming columns, and creating readible MultiIndex.
+    DataFrame. This means renaming columns, and creating readable MultiIndex.
     
     Returns
     -------
@@ -108,10 +108,11 @@ def _finalize_df(dfs):
         on=['i_trial', 'i_window_in_trial', 'target']
     )
     df = df.rename(
-        mapper={'i_trial': 'Trial', 
-                'i_window_in_trial': 'Window', 
-                'target': 'Target',
-               }, axis=1)
+        mapper={
+            'i_trial': 'Trial',
+            'i_window_in_trial': 'Window',
+            'target': 'Target',
+        }, axis=1)
     df.columns = pd.MultiIndex.from_tuples(
         [col.split('__')
          if '__' in col else ['Description', col, '', '']
@@ -121,6 +122,7 @@ def _finalize_df(dfs):
     return df
 
 
+# TODO: add restrictions to accepted shape in transform?
 class _FunctionTransformer(FunctionTransformer):
     """Inspired by mne features. Wrap a feature function. Upon call of transform
     save the shape of the input data and output data. Implement a
@@ -179,8 +181,8 @@ def _get_feature_functions(domain=None):
     
     Parameters
     ----------
-    domain: str
-        The name of the domain.
+    domain: str | None
+        The name of the domain. None corresponds to selecting all domains.
         
     Returns
     -------
@@ -207,8 +209,8 @@ def _get_extraction_routines(domain=None):
     
     Parameters
     ----------
-    domain: str
-        The name of the domain.
+    domain: str | None
+        The name of the domain. None corresponds to selecting all domains.
         
     Returns
     -------

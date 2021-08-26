@@ -1,5 +1,6 @@
 import re
 import logging
+import warnings
 from functools import partial
 
 import numpy as np
@@ -10,19 +11,19 @@ log = logging.getLogger(__name__)
 
         
 def filter_df(df, query, exact_match=False, level_to_consider=None):
-    """Filter the MultiIndex of a DataFrame wrt 'query'. Thereby, columns r
-    equired for decoding, i.e., 'Target', 'Trial', 'Window' are always
+    """Filter the MultiIndex of a DataFrame wrt 'query'. Thereby, columns
+    required for decoding, i.e., 'Target', 'Trial', 'Window' are always
     preserved.
 
     Parameters
     ----------
     df: `pd.DataFrame`
         A DataFrame to be filtered.
-    query: str
+    query: str | list(str)
         The query to look for in the columns of the DataFrame.
     exact_match: bool
         Whether the query has to be matched exactly or just be contained.
-    level_to_consider: int
+    level_to_consider: int | None
         Limit the filtering to look at a specific level of the MultiIndex.
 
     Returns
@@ -30,6 +31,28 @@ def filter_df(df, query, exact_match=False, level_to_consider=None):
     df: `pd.DataFrame`
         The DataFrame limited to the columns matching the query.
     """
+    if isinstance(query, str):
+        return _filter_df(
+            df=df,
+            query=query,
+            exact_match=exact_match,
+            level_to_consider=level_to_consider,
+        )
+    else:
+        assert all([isinstance(s, str) for s in query]), (
+            'Queries have to be strings')
+        dfs = [_filter_df(
+            df=df,
+            query=query_,
+            exact_match=exact_match,
+            level_to_consider=level_to_consider
+        ) for query_ in query]
+        description_cols = [c for c in dfs[0].columns if 'Description' in c]
+        from braindecode_features.feature_extraction import _merge_dfs
+        return _merge_dfs(dfs, description_cols)
+
+
+def _filter_df(df, query, exact_match=False, level_to_consider=None):
     masks = []
     assert not isinstance(level_to_consider, str), (
         'Has to be int, or list of int')
@@ -78,12 +101,17 @@ def add_description(df, description, name, dtype=None):
     `pd.DataFrame`
         A DataFrame that includes the column ('Description', name, '', '').
     """
-    dtype_ = np.float32
-    if dtype is not None:
+    description = np.array(description)
+    if dtype is None:
+        if all(description % 1 == 0):
+            dtype_ = np.int64
+        else:
+            dtype_ = np.float32
+    else:
         assert dtype in [np.float32, np.int64], (
             f'dtype {dtype} not supported. Please convert fo float32 or int64.')
         dtype_ = dtype
-    description = np.array(description, dtype=dtype_)
+    description = description.astype(dtype_)
     df_ = pd.DataFrame(
         description, 
         columns=pd.MultiIndex.from_tuples([('Description', name, '', '')])
@@ -164,6 +192,9 @@ def _get_unfiltered_chs(ds, frequency_bands):
 
 
 def _aggregate_windows(df, agg_func):
+    window_col = _find_col(df.columns, 'Window')
+    if window_col not in df.columns:
+        warnings.warn("Data was already aggregated.", UserWarning)
     trial_col = _find_col(df.columns, 'Trial')
     grouped = df.groupby(trial_col)
     df = grouped.agg(agg_func)
@@ -211,8 +242,8 @@ def _filter(ds, frequency_bands):
      given frequency ranges."""
     from braindecode.preprocessing import Preprocessor, preprocess, filterbank
     # check whether filtered signals already exist
-    frequency_bands_str = ['-'.join([str(b[0]), str(b[1])])
-                           for b in frequency_bands]
+    frequency_bands_str = [
+        '-'.join([str(b[0]), str(b[1])]) for b in frequency_bands]
     all_band_channels = []
     for frequency_band in frequency_bands_str:
         # pick all channels corresponding to a single frequency band
@@ -235,7 +266,7 @@ def _filter(ds, frequency_bands):
         )
     return ds
 
-        
+
 def _window(ds, windowing_fn):
     """Cut braindecode compute windows."""
     log.debug('Windowing ...')

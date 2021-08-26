@@ -6,6 +6,11 @@ from tqdm import tqdm
 from scipy import stats
 from scipy.signal import hilbert
 
+# https://github.com/CSchoel/nolds
+import nolds
+# https://github.com/raphaelvallat/antropy
+import antropy
+
 from braindecode_features.utils import (
     _generate_feature_names, _filter_and_window, _check_df_consistency)
 
@@ -15,19 +20,50 @@ log = logging.getLogger(__name__)
 
 def get_time_feature_functions():
     """Get feature functions of time domain."""
+    # helper functions
+    def derive(X):
+        return np.diff(X, axis=-1)
+
     # TODO: add slow time domain features
     # https://github.com/gilestrolab/pyrem/blob/master/src/pyrem/univariate.py
     # Time domain features
-    def covariance(X, include_diag=False): 
+    def approximate_entropy(X):
+        return np.array([np.apply_along_axis(
+            func1d=antropy.app_entropy,
+            axis=-1,
+            arr=x,
+        ) for x in X])
+
+    def correlation_dimension(X):
+        return np.array([np.apply_along_axis(
+            func1d=nolds.corr_dim,
+            axis=-1,
+            arr=x,
+            emb_dim=int(x.shape[-1]/10),
+            fit='poly',
+        ) for x in X])
+
+    def covariance(X, include_diag=False):
         covs = [np.cov(x) for x in X]
         # matrix is symmetrical, so vectorize.
-        # ignore variance on diagonal, it is a feature itself
+        # by default ignore variance on diagonal, it is a feature itself
         covs_triu = [
             cov[np.triu_indices(cov.shape[-2], k=int(not include_diag))]
             for cov in covs]
         return np.array(covs_triu)
 
-    def energy(X): return np.mean(X*X, axis=-1)
+    def detrended_fluctuation_analysis(X):
+        return np.array([np.apply_along_axis(
+            func1d=nolds.dfa,
+            axis=-1,
+            arr=x,
+        ) for x in X])
+
+    def energy(X):
+        return np.mean(X*X, axis=-1)
+
+    def fisher_information(X):
+        raise NotImplementedError
 
     def higuchi_fractal_dimension(X, kmax):
         # multi-dim version tested vs 1d version of pyeeg, 1e-5 max difference
@@ -51,23 +87,79 @@ def get_time_feature_functions():
             ps.append(p[0,:])
         return np.array(ps)
 
+    def hjorth_complexity(X):
+        return np.divide(hjorth_mobility(derive(X)), hjorth_mobility(X))
+
+    def hjorth_mobility(X):
+        return np.sqrt(np.divide(variance(derive(X)), variance(X)))
+
+    def hurst_exponent(X):
+        return np.array([np.apply_along_axis(
+            func1d=nolds.hurst_rs,
+            axis=-1,
+            arr=x,
+            fit='poly',
+        ) for x in X])
+
     def interquartile_range(X, q=75):
         q1, q2 = np.percentile(X, [q, 100-q], axis=-1)
         return q2 - q1
 
-    def kurtosis(X): return stats.kurtosis(X, axis=-1)
-    def line_length(X): return np.sum(np.abs(np.diff(X, axis=-1)), axis=-1)
-    def maximum(X): return np.max(X, axis=-1)
-    def mean(X): return np.mean(X, axis=-1)
-    def median(X): return np.median(X, axis=-1)
-    def minimum(X): return np.min(X, axis=-1)
+    def katz_fractal_dimension(X):
+        # https://raphaelvallat.com/entropy/build/html/generated/entropy.katz_fd.html  # noqa
+        L = np.sum(np.abs(derive(X)), axis=-1)
+        a = np.mean(np.abs(derive(X)), axis=-1)
+        d = np.max(np.abs(-X + X[:, :, :1]), axis=-1)
+        return np.divide(np.log10(np.divide(L, a)), np.log10(np.divide(d, a)))
 
-    def petrosian_fractal_dimension(X, axis=-1):
+    def kurtosis(X):
+        return stats.kurtosis(X, axis=-1)
+
+    def line_length(X):
+        return np.sum(np.abs(derive(X)), axis=-1)
+
+    def lyauponov_exponent(X):
+        return np.array([np.apply_along_axis(
+            func1d=nolds.lyap_r,
+            axis=-1,
+            arr=x,
+            fit='poly',
+        ) for x in X])
+
+    def lziv_complexity(X):
+        return np.array([np.apply_along_axis(
+            func1d=antropy.lziv_complexity,
+            axis=-1,
+            arr=x,
+        ) for x in X])
+
+    def maximum(X):
+        return np.max(X, axis=-1)
+
+    def mean(X):
+        return np.mean(X, axis=-1)
+
+    def median(X):
+        return np.median(X, axis=-1)
+
+    def minimum(X):
+        return np.min(X, axis=-1)
+
+    def perm_entropy(X):
+        return np.array([np.apply_along_axis(
+            func1d=antropy.perm_entropy,
+            axis=-1,
+            arr=x,
+        ) for x in X])
+
+    def petrosian_fractal_dimension(X):
         # https://raphaelvallat.com/entropy/build/html/generated/entropy.petrosian_fd.html  # noqa
-        diff = np.diff(X)
-        crossings = np.sum((diff[:, :, 1:] * diff[:, :, :-1] < 0), axis=axis)
-        N = X.shape[axis]
-        return np.log10(N) / (np.log10(N) + np.log10(N / (N + 0.4 * crossings)))
+        zero_crossings_dev = zero_crossings_derivative(X)
+        N = X.shape[-1]
+        return np.divide(
+            np.log10(N),
+            np.log10(N) + np.log10(np.divide(N, (N + 0.4 * zero_crossings_dev)))
+        )
 
     def phase_locking_value(X):
         # remove empty first dimension
@@ -91,6 +183,7 @@ def get_time_feature_functions():
         return plv
 
     def root_mean_square(X): return np.sqrt(np.mean(X*X, axis=-1))
+
     #def shannon_entropy(X):
         # https://arxiv.org/pdf/2001.08386.pdf
         # unsuitable for time domain, only for frequency domain!
@@ -98,35 +191,69 @@ def get_time_feature_functions():
         # for time domain
         #return -np.sum(X * np.log2(X), axis=-1)
 
-    def skewness(X): return stats.skew(X, axis=-1)
-    def standard_deviation(X): return np.std(X, axis=-1)
-    def value_range(X): return np.ptp(X, axis=-1)
-    def variance(X): return np.var(X, axis=-1)
+    def sample_entropy(X):
+        return np.array([np.apply_along_axis(
+            func1d=nolds.sampen,
+            axis=-1,
+            arr=x,
+            emb_dim=int(x.shape[-1]/10),
+        ) for x in X])
 
-    def zero_crossings(X): return np.sum(((X[:, :, 1:] * X[:, :, :-1]) < 0),
-                                         axis=-1)
+    def skewness(X):
+        return stats.skew(X, axis=-1)
+
+    def standard_deviation(X):
+        return np.std(X, axis=-1)
+
+    def svd_entropy(X):
+        return np.array([np.apply_along_axis(
+            func1d=antropy.svd_entropy,
+            axis=-1,
+            arr=x,
+        ) for x in X])
+
+    def value_range(X):
+        return np.ptp(X, axis=-1)
+
+    def variance(X):
+        # similar to hjorth activity
+        return np.var(X, axis=-1)
+
+    def zero_crossings(X):
+        return np.sum(((X[:, :, 1:] * X[:, :, :-1]) < 0), axis=-1)
 
     def zero_crossings_derivative(X):
-        diff = np.diff(X, axis=-1)
-        return np.sum(((diff[:, :, 1:] * diff[:, :, :-1]) < 0), axis=-1)
-    
+        return zero_crossings(derive(X))
+
     funcs = [
+        approximate_entropy,
+        correlation_dimension,
         covariance,
-        energy, 
+        # detrended_fluctuation_analysis,  # slow
+        energy,
+        # fisher_information,  # not implemented
         higuchi_fractal_dimension,
+        hjorth_complexity,
+        hjorth_mobility,
+        hurst_exponent,
         interquartile_range,
+        katz_fractal_dimension,
         kurtosis,
         line_length,
+        # lyauponov_exponent,  # slow
+        lziv_complexity,
         maximum,
         mean,
         median,
-        minimum, 
+        minimum,
+        perm_entropy,
         petrosian_fractal_dimension,
         phase_locking_value,
         root_mean_square,
-        # shannon_entropy,
+        # sample_entropy,  # broken, gives infinity or NaN
         skewness,
         standard_deviation,
+        # svd_entropy,  # slow
         value_range,
         variance,
         zero_crossings,

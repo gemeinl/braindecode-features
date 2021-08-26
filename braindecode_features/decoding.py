@@ -1,4 +1,5 @@
 import logging
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -30,7 +31,7 @@ def prepare_features(df, agg_func=None, windows_as_examples=True):
     Returns
     -------
     X: `np.ndarray`
-        The feature matrix (n_examples x n_feautures).
+        The feature matrix (n_examples x n_features).
     y: `np.ndarray`
         The targets (n_examples).
     groups: `np.ndarray`
@@ -44,10 +45,11 @@ def prepare_features(df, agg_func=None, windows_as_examples=True):
     window_col = _find_col(df.columns, 'Window')
     if agg_func is not None:
         if windows_as_examples:
-            log.warning("'windows_as_examples' without effect if 'agg_func' is "
-                        "not None.")
-        if window_col not in df.columns or len(set(df[window_col])) == 1:
-            log.warning("Data was already aggregated.")
+            warnings.warn("'windows_as_examples' without effect if 'agg_func' "
+                          "is not None.", UserWarning)
+        if set(df[window_col]) == {1}:
+            warnings.warn("Only one window per trial exists. Data was probably"
+                          " already aggregated.", UserWarning)
         else:
             df = _aggregate_windows(df=df, agg_func=agg_func)
     else:
@@ -67,9 +69,9 @@ def prepare_features(df, agg_func=None, windows_as_examples=True):
     log.info(f"Feature '{'__'.join(feature_names.iloc[corrs.argmax()])}' has "
              f"the highest correlation of any feature with the target at a "
              f"value of {corrs.max():.2f}.")
-    if corrs.max() > .5:
-        log.warning('Did you accidentally add the target to the feature matrix'
-                    '?')
+    if corrs.max() > .9:
+        warnings.warn('Did you accidentally add the target to the feature '
+                      'matrix?', UserWarning)
     return X, y, groups, feature_names
 
 
@@ -78,36 +80,57 @@ def score(score_func, y, y_pred, y_groups=None):
     
     Parameters
     ----------
-    score_func: callable
+    score_func: callable | list(callable)
         A function that takes y and y_pred and returns a score.
     y: array-like
         Window labels.
     y_pred: array-like
         Window predictions.
-    groups: array-like
+    y_groups: None, array-like
         Mapping of labels and predictions to groups.
     
     Returns
     -------
     Window and trialwise score.
     """
+    score_funcs = [score_func] if callable(score_func) else score_func
+    scores = {}
+    for score_func in score_funcs:
+        scores_ = _score(
+            score_func=score_func,
+            y=y,
+            y_pred=y_pred,
+            y_groups=y_groups,
+        )
+        for score_name, score_ in scores_.items():
+            if score_name in scores_.keys():
+                warnings.warn(f"Score '{score_name}' already in scores. "
+                              f"Value was overwritten.", UserWarning)
+            scores.update({score_name: score_})
+    return scores
+
+
+def _score(score_func, y, y_pred, y_groups=None):
     y = np.array(y)
     y_pred = np.array(y_pred)
-    scores = {'window_' + score_func.__name__: score_func(y, y_pred)}
-    if all(np.bincount(y_groups) == 1):
-        log.info('Window and trial accuracy will be identical, since there '
-                 'is always exactly one window per trial.')
-    pred_df = {'y': y, 'pred': y_pred, 'group': y_groups}
-    trial_pred, trial_y = [], []
-    for n, g in pd.DataFrame(pred_df).groupby('group'):
-        trial_pred.append(g.pred.value_counts().idxmax())  # TODO: verify
-        assert len(g.y.unique()) == 1, 'group labels are inconsistent'
-        trial_y.append(g.y.value_counts().idxmax())    
-    trial_pred = np.array(trial_pred)
-    trial_y = np.array(trial_y)
-    scores.update(
-        {'trial_' + score_func.__name__: score_func(trial_pred, trial_y)}
-    )
+    score_name = 'window_' + score_func.__name__
+    scores = {score_name: score_func(y, y_pred)}
+    if y_groups is not None:
+        if all(np.bincount(y_groups) == 1):
+            log.info('Window and trial accuracy will be identical, since there '
+                     'is always exactly one window per trial.')
+        pred_df = {'y': y, 'pred': y_pred, 'group': y_groups}
+        trial_pred, trial_y = [], []
+        for n, g in pd.DataFrame(pred_df).groupby('group'):
+            trial_pred.append(g.pred.value_counts().idxmax())  # TODO: verify
+            assert len(g.y.unique()) == 1, 'group labels are inconsistent'
+            trial_y.append(g.y.value_counts().idxmax())
+        trial_pred = np.array(trial_pred)
+        trial_y = np.array(trial_y)
+        score_name = 'trial_' + score_func.__name__
+        scores.update(
+            {score_name: score_func(trial_pred, trial_y)}
+        )
     return scores
 
 
