@@ -391,7 +391,6 @@ def _select_funcs(funcs, include=None, exclude=None):
         raise ValueError('Can either include or exclude specific functions.'
                          ' Please make a decision.')
     func_names = [f.__name__ for f in funcs]
-    print(func_names)
     selection = sorted(func_names)
     if include is not None:
         if isinstance(include, str):
@@ -401,7 +400,6 @@ def _select_funcs(funcs, include=None, exclude=None):
         if isinstance(exclude, str):
             exclude = [exclude]
         selection = sorted(exclude)
-    print(selection)
     if not all([f in func_names for f in selection]):
         raise ValueError('You specified unknown functions.')
     sel_funcs = []

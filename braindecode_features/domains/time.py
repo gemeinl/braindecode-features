@@ -41,12 +41,14 @@ def get_time_feature_functions(include=None, exclude=None):
             arr=x,
         ) for x in X])
 
-    def correlation_dimension(X):
+    def correlation_dimension(X, emb_dim=None):
+        if emb_dim is None:
+            emb_dim = int(X[0].shape[-1]/10)
         return np.array([np.apply_along_axis(
             func1d=nolds.corr_dim,
             axis=-1,
             arr=x,
-            emb_dim=int(x.shape[-1]/10),
+            emb_dim=emb_dim,
             fit='poly',
         ) for x in X])
 
@@ -152,7 +154,7 @@ def get_time_feature_functions(include=None, exclude=None):
     def minimum(X):
         return np.min(X, axis=-1)
 
-    def perm_entropy(X):
+    def permutation_entropy(X):
         return np.array([np.apply_along_axis(
             func1d=antropy.perm_entropy,
             axis=-1,
@@ -253,7 +255,7 @@ def get_time_feature_functions(include=None, exclude=None):
         mean,
         median,
         minimum,
-        perm_entropy,
+        permutation_entropy,
         petrosian_fractal_dimension,
         phase_locking_value,
         root_mean_square,

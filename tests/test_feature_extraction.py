@@ -1,25 +1,18 @@
 from functools import partial
 
-import mne
 import numpy as np
 import pandas as pd
 
 from braindecode_features.feature_extraction import (
     _get_feature_functions,
     _get_extraction_routines, _FunctionTransformer, _finalize_df, _merge_dfs,
-    _params_to_domain_params, _build_transformer_list, extract_ds_features
-)
+    _params_to_domain_params, _build_transformer_list, extract_ds_features)
+
+from .utils import create_fake_concat_ds
 
 
 def test_extract_ds_features():
-    from braindecode.datasets import BaseDataset, BaseConcatDataset
-    np.random.seed(20210823)
-    channel_names = ['O1', 'O2']
-    info = mne.create_info(channel_names, sfreq=100, ch_types='eeg')
-    signals = np.random.rand(2*100).reshape(2, 100)
-    raw = mne.io.RawArray(signals, info)
-    ds = BaseDataset(raw=raw)
-    concat_ds = BaseConcatDataset([ds])
+    concat_ds = create_fake_concat_ds()
     features = extract_ds_features(
         ds=concat_ds,
         frequency_bands=[(8, 13)],

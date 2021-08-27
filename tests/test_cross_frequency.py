@@ -1,5 +1,3 @@
-import mne
-import numpy as np
 from sklearn.pipeline import FeatureUnion
 
 from braindecode_features.feature_extraction import (
@@ -8,15 +6,11 @@ from braindecode_features.utils import _initialize_windowing_fn
 from braindecode_features.domains.cross_frequency import (
     get_cross_frequency_feature_functions, extract_cross_frequency_features)
 
+from .utils import create_fake_concat_ds
+
 
 def test_extract_cross_frequency_features():
-    from braindecode.datasets import BaseDataset, BaseConcatDataset
-    np.random.seed(20210823)
-    info = mne.create_info(['O1', 'O2'], sfreq=100, ch_types='eeg')
-    signals = np.random.rand(2 * 100).reshape(2, 100)
-    raw = mne.io.RawArray(signals, info)
-    ds = BaseDataset(raw=raw)
-    concat_ds = BaseConcatDataset([ds])
+    concat_ds = create_fake_concat_ds()
     transformers = get_cross_frequency_feature_functions()
     transformers = [_FunctionTransformer(f) for f in transformers]
     transformers = _build_transformer_list(transformers)

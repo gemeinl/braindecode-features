@@ -1,6 +1,5 @@
 import os
 import tempfile
-from functools import partial
 
 import mne
 import pytest
@@ -15,6 +14,8 @@ from braindecode_features.utils import (
     _initialize_windowing_fn, _get_unfiltered_chs, _generate_feature_names,
     _find_col, _filter_and_window, _filter, _concat_ds_and_window,
     _check_df_consistency, _aggregate_windows, _select_funcs)
+
+from .utils import create_fake_concat_ds, create_fake_base_ds
 
 
 def test_check_df_consistency():
@@ -56,15 +57,10 @@ def test_check_df_consistency():
 
 
 def test_concat_ds_and_window():
-    from braindecode.datasets import BaseDataset
     np.random.seed(20210823)
-    channel_names = ['O1', 'O2']
-    info = mne.create_info(channel_names, sfreq=100)
     band_channels = ['O1']
-    signals = np.random.rand(2*100).reshape(2, 100)
     new_signals = np.random.rand(2*100).reshape(2, 100)
-    raw = mne.io.RawArray(signals, info)
-    ds = BaseDataset(raw=raw)
+    ds = create_fake_base_ds()
     concat_windows_ds = _concat_ds_and_window(
         ds=ds,
         data=new_signals,
@@ -81,35 +77,21 @@ def test_concat_ds_and_window():
     assert len(concat_windows_ds) == 1
     for x, y, ind in concat_windows_ds:
         assert x.shape == (1, 100)
-        ids = [channel_names.index(ch) for ch in band_channels]
+        ids = [ds.raw.ch_names.index(ch) for ch in band_channels]
         np.testing.assert_allclose(
             new_signals[ids], x, rtol=1e-6, atol=1e-6)
         break
 
 
 def test_filter():
-    from braindecode.datasets import BaseDataset, BaseConcatDataset
-    np.random.seed(20210823)
-    channel_names = ['O1', 'O2']
-    info = mne.create_info(channel_names, sfreq=100, ch_types='eeg')
-    signals = np.random.rand(2 * 100).reshape(2, 100)
-    raw = mne.io.RawArray(signals, info)
-    ds = BaseDataset(raw=raw)
-    concat_ds = BaseConcatDataset([ds])
+    concat_ds = create_fake_concat_ds()
     filtered_ds = _filter(concat_ds, frequency_bands=[(0, 4), (4, 8)])
     assert filtered_ds.datasets[0].raw.ch_names == [
         'O1', 'O1_0-4', 'O1_4-8', 'O2', 'O2_0-4', 'O2_4-8']
 
 
 def test_filter_and_window():
-    from braindecode.datasets import BaseDataset, BaseConcatDataset
-    np.random.seed(20210823)
-    channel_names = ['O1', 'O2']
-    info = mne.create_info(channel_names, sfreq=100, ch_types='eeg')
-    signals = np.random.rand(2 * 100).reshape(2, 100)
-    raw = mne.io.RawArray(signals, info)
-    ds = BaseDataset(raw=raw)
-    concat_ds = BaseConcatDataset([ds])
+    concat_ds = create_fake_concat_ds()
     concat_windows_ds = _filter_and_window(
         ds=concat_ds,
         frequency_bands=[(0, 4), (4, 8)],
@@ -202,18 +184,19 @@ def test_generate_feature_names():
 
 
 def test_get_unfiltered_chs():
-    from braindecode.datasets import BaseDataset
-    np.random.seed(20210823)
-    info = mne.create_info(['O1', 'O1_4-8'], sfreq=100)
-    signals = np.random.rand(2*100).reshape(2, 100)
-    new_signals = np.random.rand(2*100).reshape(2, 100)
-    raw = mne.io.RawArray(signals, info)
-    ds = BaseDataset(raw=raw)
-    unfiltered_chs = _get_unfiltered_chs(
-        ds=ds,
-        frequency_bands=[(4, 8)],
+    concat_ds = create_fake_concat_ds()
+    frequency_bands = [(4, 8)]
+    filtered_ds = _filter(
+        ds=concat_ds,
+        frequency_bands=frequency_bands,
     )
-    assert unfiltered_chs == ['O1']
+    ch_names = ['O1', 'O2', 'O1_4-8', 'O2_4-8']
+    assert all([ch in filtered_ds.datasets[0].raw.ch_names for ch in ch_names])
+    unfilterd_chs = _get_unfiltered_chs(
+        ds=concat_ds.datasets[0],
+        frequency_bands=frequency_bands,
+    )
+    assert unfilterd_chs == ['O1', 'O2']
 
 
 def test_initialize_windowing_fn():
@@ -261,13 +244,7 @@ def test_read_and_aggregate():
 
 
 def test_window():
-    from braindecode.datasets import BaseDataset, BaseConcatDataset
-    np.random.seed(20210823)
-    info = mne.create_info(['O1', 'O2'], sfreq=100)
-    signals = np.random.rand(2 * 100).reshape(2, 100)
-    raw = mne.io.RawArray(signals, info)
-    ds = BaseDataset(raw=raw)
-    concat_ds = BaseConcatDataset([ds])
+    concat_ds = create_fake_concat_ds()
     windows_ds = _window(
         ds=concat_ds,
         windowing_fn=_initialize_windowing_fn(
