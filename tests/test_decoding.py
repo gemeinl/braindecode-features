@@ -6,23 +6,11 @@ from sklearn.metrics import accuracy_score
 from braindecode_features.decoding import (
     _examples_from_windows, score, prepare_features)
 
+from .utils import create_fake_feature_df
+
     
 def test_examples_from_windows():
-    df = pd.DataFrame(
-        data=[
-            [4, 0, 0, .2, .89],
-            [4, 0, 1, .4, .73],
-            [2, 1, 0, 13.2, .08],
-            [2, 1, 1, 13.2, .08],
-        ],
-        columns=pd.MultiIndex.from_tuples([
-            ('Description', 'Target', '', ''),
-            ('Description', 'Trial', '', ''),
-            ('Description', 'Window', '', ''),
-            ('Time', 'line_length', '4-8', 'O1'),
-            ('Phase', 'phase_locking_value', '8-13', 'O1-P5'),
-        ], names=['Domain', 'Feature', 'Channel', 'Frequency']),
-    )
+    df = create_fake_feature_df()
     new_df = _examples_from_windows(df)
     expected_df = pd.DataFrame(
         data=[
@@ -103,22 +91,7 @@ def test_score():
 
 
 def test_prepare_features():
-    df = pd.DataFrame(
-        data=[
-            [4, 0, 0, .2, .89],
-            [4, 0, 1, .4, .73],
-            [2, 1, 0, 13.2, .08],
-            [2, 1, 1, 13.2, .08],
-        ],
-        columns=pd.MultiIndex.from_tuples([
-            ('Description', 'Target', '', ''),
-            ('Description', 'Trial', '', ''),
-            ('Description', 'Window', '', ''),
-            ('Time', 'line_length', '4-8', 'O1'),
-            ('Phase', 'phase_locking_value', '8-13', 'O1-P5'),
-        ], names=['Domain', 'Feature', 'Channel', 'Frequency']),
-    )
-
+    df = create_fake_feature_df()
     # agg_func = None, windows_as_examples = False
     X, y, groups, feature_names = prepare_features(
         df=df,

@@ -1,7 +1,6 @@
 import os
 import tempfile
 
-import mne
 import pytest
 import numpy as np
 import pandas as pd
@@ -15,27 +14,14 @@ from braindecode_features.utils import (
     _find_col, _filter_and_window, _filter, _concat_ds_and_window,
     _check_df_consistency, _aggregate_windows, _select_funcs)
 
-from .utils import create_fake_concat_ds, create_fake_base_ds
+from .utils import create_fake_concat_ds, create_fake_base_ds, _df_n_series, _df
 
 
 def test_check_df_consistency():
-    feature_col = ('Domain', 'Feature', 'Channel', 'Frequency_band')
-    multiindex = pd.MultiIndex.from_tuples([
-        ('Description', 'Trial', '', ''),
-        ('Description', 'Window', '', ''),
-        ('Description', 'Target', '', ''),
-    ], names=feature_col)
-    d = pd.DataFrame([
-        [0, 1, 2],
-        [0, 0, 0],
-        [0, 1, 0],
-    ], columns=multiindex)
-    # check df is fine
-    _check_df_consistency(d)
-    f_name = ('D', 'F', 'C', 'Fr')
-    f = pd.Series([0.33, 1.1, -.4], name=f_name)
+    d, f = _df_n_series()
     df = pd.concat([d, f], axis=1)
     _check_df_consistency(df)
+    f_name = df.columns[-1]
 
     # check df fails with None value
     f = pd.Series([0.33, None, -.4], name=f_name)
@@ -219,19 +205,7 @@ def test_initialize_windowing_fn():
 
 
 def test_read_and_aggregate():
-    feature_col = ('Domain', 'Feature', 'Channel', 'Frequency_band')
-    multiindex = pd.MultiIndex.from_tuples([
-        ('Description', 'Trial', '', ''),
-        ('Description', 'Window', '', ''),
-        ('Description', 'Target', '', ''),
-    ], names=feature_col)
-    d = pd.DataFrame([
-        [0, 1, 2],
-        [0, 0, 0],
-        [0, 1, 0],
-    ], columns=multiindex)
-    f_name = ('D', 'F', 'C', 'Fr')
-    f = pd.Series([0.33, 1.1, -.4], name=f_name)
+    d, f = _df_n_series()
     df1 = pd.concat([d, f], axis=1)
     path = tempfile.mkdtemp()
     file_path = os.path.join(path, 'test.hdf')
@@ -323,25 +297,7 @@ def test_aggregate_windows():
 
     
 def test_add_description():
-    columns = [
-        ('Description', 'Trial', '', ''),
-        ('Description', 'Window', '', ''),
-        ('Description', 'Target', '', ''),
-        ('data', '', '', ''),
-    ]
-    df = pd.DataFrame(
-        data=[
-            [0, 0, 4, .2],
-            [0, 1, 4, .4],
-            [1, 0, 2, 13.2],
-        ],
-        columns=columns,
-    )    
-    df = add_description(
-        df=df,
-        description=[-1, -1, -1],
-        name='Test',
-    )
+    df = _df()
     expected_df = pd.DataFrame(
         data=[
             [-1, 0, 0, 4, .2],
@@ -349,26 +305,18 @@ def test_add_description():
             [-1, 1, 0, 2, 13.2],
         ],
         columns=pd.MultiIndex.from_tuples(
-            [('Description', 'Test', '', '')] + columns),
+            [('Description', 'Test', '', '')] + list(df.columns)),
+    )
+    df = add_description(
+        df=df,
+        description=[-1, -1, -1],
+        name='Test',
     )
     pd.testing.assert_frame_equal(expected_df, df)
 
 
 def test_drop_window():
-    columns = [
-        ('Description', 'Trial', '', ''),
-        ('Description', 'Window', '', ''),
-        ('Description', 'Target', '', ''),
-        ('data', '', '', ''),
-    ]
-    df = pd.DataFrame(
-        data=[
-            [0, 0, 4, .2],
-            [0, 1, 4, .4],
-            [1, 0, 2, 13.2],
-        ],
-        columns=columns,
-    )
+    df = _df()
     df = drop_window(
         df=df,
         window_i=0,
@@ -377,7 +325,7 @@ def test_drop_window():
         data=[
             [0, 0, 4, .4],
         ],
-        columns=columns,
+        columns=df.columns,
     )
     pd.testing.assert_frame_equal(expected_df, df)
 
