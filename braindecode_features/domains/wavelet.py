@@ -24,7 +24,7 @@ def get_wavelet_feature_functions(include=None, exclude=None):
     """
     def bounded_variation(X):
         # https://sci-hub.se/10.1109/issnip.2008.4762005, p310, 5)
-        # is this correct? what is mean with 'wavelet band signals'?
+        # is this correct? what is meant with 'wavelet band signals'?
         diffs = np.diff(X, axis=-1)
         abs_sums = np.sum(np.abs(diffs), axis=-1)
         max_c = np.max(X, axis=-1)

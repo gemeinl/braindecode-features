@@ -193,13 +193,6 @@ def get_time_feature_functions(include=None, exclude=None):
 
     def root_mean_square(X): return np.sqrt(np.mean(X*X, axis=-1))
 
-    #def shannon_entropy(X):
-        # https://arxiv.org/pdf/2001.08386.pdf
-        # unsuitable for time domain, only for frequency domain!
-        # see https://www.interscience.in/cgi/viewcontent.cgi?article=1175&context=ijcct
-        # for time domain
-        #return -np.sum(X * np.log2(X), axis=-1)
-
     def sample_entropy(X):
         return np.array([np.apply_along_axis(
             func1d=nolds.sampen,

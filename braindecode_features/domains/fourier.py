@@ -22,6 +22,10 @@ def get_fourier_feature_functions(include=None, exclude=None):
     exclude: list
     """
     # TODO: add spectral entropy?
+    # TODO: add shannon entropy?
+    # https://arxiv.org/pdf/2001.08386.pdf
+    # unsuitable for time domain, only for frequency domain!
+    # see https://www.interscience.in/cgi/viewcontent.cgi?article=1175&context=ijcct
     def maximum(transform): return np.max(np.abs(transform), axis=-1)
     def mean(transform): return np.mean(np.abs(transform), axis=-1)
     def median(transform): return np.median(np.abs(transform), axis=-1)
