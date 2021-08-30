@@ -95,56 +95,6 @@ def test_filter_and_window():
         'O1', 'O1_0-4', 'O1_4-8', 'O2', 'O2_0-4', 'O2_4-8']
 
 
-""""
-def test_filter_df():
-    feature_col = ('Domain', 'Feature', 'Channel', 'Frequency_band')
-    multiindex = pd.MultiIndex.from_tuples([
-        ('Description', 'Trial', '', ''),
-        ('Description', 'Window', '', ''),
-        ('Description', 'Target', '', ''),
-    ], names=feature_col)
-    d = pd.DataFrame([
-        [0, 1, 2],
-        [0, 0, 0],
-        [0, 1, 0],
-    ], columns=multiindex)
-    f_name = ('D', 'F', 'C', 'Fr')
-    f = pd.Series([0.33, 1.1, -.4], name=f_name)
-    df1 = pd.concat([d, f], axis=1)
-    f_name = ('D2', 'F2', 'C2', 'Fr2')
-    f = pd.Series([0.33, 1.1, -.4], name=f_name)
-    df2 = pd.concat([df1, f], axis=1)
-    filtered_df = filter_df(
-        df=df2,
-        query='D',
-        exact_match=False,
-        level_to_consider=None,
-    )
-    assert pd.testing.assert_frame_equal(df2, filtered_df)
-    filtered_df = filter_df(
-        df=df2,
-        query='D',
-        exact_match=True,
-        level_to_consider=None,
-    )
-    assert pd.testing.assert_frame_equal(df1, filtered_df)
-    filtered_df = filter_df(
-        df=df2,
-        query='D',
-        exact_match=False,
-        level_to_consider=0,
-    )
-    assert pd.testing.assert_frame_equal(df1, filtered_df)
-    filtered_df = filter_df(
-        df=df2,
-        query=['D'],
-        exact_match=False,
-        level_to_consider=0,
-    )
-    assert pd.testing.assert_frame_equal(df1, filtered_df)
-"""
-
-
 def test_generate_feature_names():
     ch_names = ['O1', 'O2']
     transformers = [np.mean, np.var]
