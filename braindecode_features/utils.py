@@ -401,7 +401,7 @@ def _select_funcs(funcs, include=None, exclude=None):
             exclude = [exclude]
         selection = sorted(exclude)
     if not all([f in func_names for f in selection]):
-        raise ValueError('You specified unknown functions.')
+        raise ValueError('You specified unknown functions.', selection)
     sel_funcs = []
     for f in funcs:
         if include is not None and f.__name__ in selection:

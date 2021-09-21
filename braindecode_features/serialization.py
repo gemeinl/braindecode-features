@@ -47,7 +47,7 @@ def read_features(path, agg_func=None, n_jobs=1):
     dfs: `pd.DataFrame`
         The feature DataFrame.
     """
-    # read all 'h5' files in path and sort them ascendingly 
+    # read all 'h5' files in path and sort them in ascending order
     file_paths = glob.glob(os.path.join(path, '*.h5'))
     file_paths = sorted(
         file_paths,

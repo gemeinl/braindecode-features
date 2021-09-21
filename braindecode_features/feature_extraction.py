@@ -1,5 +1,3 @@
-import logging
-
 import pandas as pd
 from sklearn.pipeline import FeatureUnion
 from sklearn.preprocessing import FunctionTransformer
@@ -12,7 +10,8 @@ log = logging.getLogger(__name__)
 
 
 def extract_ds_features(
-        ds, frequency_bands, windowing_params, params=None, n_jobs=1):
+        ds, frequency_bands, windowing_params=None, funcs_params=None,
+        include=None, exclude=None, n_jobs=1):
     """Extract features from a braindecode BaseConcatDataset of WindowsDataset.
 
     Parameters
@@ -21,6 +20,15 @@ def extract_ds_features(
         Braindecode dataset to be used for feature extraction.
     frequency_bands: list(tuple(int, int))
         A list of frequency bands of prefiltered signals.
+    windowing_params: None | dict
+        Braindecode windowing function arguments
+    funcs_params: None | dict
+        {'Time__median__axis': -1}
+    include: list | None
+        Names of feature domains or feature functions to include, e.g.,
+        'Time', 'Fourier__power'
+    exclude: list | None
+        Names of feature domains or feature functions to exclude.
     n_jobs: int
         Number of processes used for parallelization.
 
@@ -30,13 +38,15 @@ def extract_ds_features(
         The final feature DataFrame holding all features, target information and
         feature name annotations.
     """
-    feature_functions, extraction_routines = _get_feature_functions_and_extraction_routines()
-    # if domains is not None:
-    #    feature_functions = {domain: feature_functions[domain] for domain in domains}
-    #    extraction_routines = {domain: extraction_routines[domain] for domain in domains}
-    if params is not None:
-        params = _params_to_domain_params(params=params)
+    feature_functions, extraction_routines = \
+        _get_feature_functions_and_extraction_routines(
+            include=include, exclude=exclude
+        )
+    if funcs_params is not None:
+        funcs_params = _params_to_domain_params(params=funcs_params)
     has_events = len(ds.datasets[0].raw.annotations)
+    if windowing_params is None:
+        windowing_params = {}
     windowing_params.update({'n_jobs': n_jobs})
     windowing_fn = _initialize_windowing_fn(has_events, windowing_params)
     log.debug(f'got {len(ds.datasets)} datasets')
@@ -53,8 +63,8 @@ def extract_ds_features(
             n_jobs=n_jobs,
         )
         # set params
-        if params is not None and domain in params:
-            fu.set_params(**params[domain])
+        if funcs_params is not None and domain in funcs_params:
+            fu.set_params(**funcs_params[domain])
         # extract features of one domain at a time
         domain_dfs[domain] = extraction_routines[domain](
             concat_ds=ds,
@@ -97,14 +107,14 @@ def _merge_dfs(dfs, on):
 def _finalize_df(dfs):
     """Merge feature DataFrames returned by extraction routines to the final
     DataFrame. This means renaming columns, and creating readable MultiIndex.
-    
+
     Returns
     -------
     df: `pd.DataFrame`
         The final feature DataFrame.
     """
     df = _merge_dfs(
-        dfs=dfs, 
+        dfs=dfs,
         on=['i_trial', 'i_window_in_trial', 'target']
     )
     df = df.rename(
@@ -149,7 +159,7 @@ class _FunctionTransformer(FunctionTransformer):
     def transform(self, X):
         # TODO: always expect 4d input?
         # TODO: always preserve input dimensions?
-        # could probably remove the bins. could then use argmax of amplitudes instead of 
+        # could probably remove the bins. could then use argmax of amplitudes instead of
         # bins at the position of argmax amplitudes for peak frequency
         # TODO: also, cross-frequency features get a tuple of twice the amount of data
         n_dim_in = X.ndim #if not isinstance(X, tuple) else X[0].ndim
@@ -174,44 +184,89 @@ class _FunctionTransformer(FunctionTransformer):
         assert X.shape[-2] == examples_in, (
             f'Number of examples changed from {examples_in} to {X.shape[0]}.')
         return X
-    
 
-def _get_feature_functions(domain=None):
+
+def _get_feature_functions(include=None, exclude=None):
     """Get feature extraction functions.
-    
+
     Parameters
     ----------
-    domain: str | None
-        The name of the domain. None corresponds to selecting all domains.
-        
+    include: None | str
+        The name of domains and / or features to include.
+    exclude: None | str
+        The name of domains and / or features to exclude.
+
     Returns
     -------
     dict
         Mapping of feature domain to feature extraction functions.
     """
-    feature_functions = {
-        'Time': [_FunctionTransformer(f)
-                 for f in get_time_feature_functions()],
-        'Fourier': [_FunctionTransformer(f)
-                    for f in get_fourier_feature_functions()],
-        'Wavelet': [_FunctionTransformer(f)
-                    for f in get_wavelet_feature_functions()],
-        'Cross-frequency': [_FunctionTransformer(f)
-                            for f in get_cross_frequency_feature_functions()],
+    domain_func_getters = {
+        'Time': get_time_feature_functions,
+        'Fourier': get_fourier_feature_functions,
+        'Wavelet': get_wavelet_feature_functions,
+        'Cross-frequency': get_cross_frequency_feature_functions,
     }
-    if domain is not None:
-        feature_functions = {domain: feature_functions[domain]}
+    domains = list(domain_func_getters.keys())
+
+    # remove domains or features according to exclude argument
+    assert not (include is not None and exclude is not None)
+    if include is not None:
+        assert isinstance(include, list)
+    if exclude is not None:
+        assert isinstance(exclude, list)
+    excludes = {domain: None for domain in domains}
+    if exclude is not None:
+        for ex in exclude:
+            if '__' not in ex:
+                if ex in domains:
+                    _ = domain_func_getters.pop(ex)
+            else:
+                domain, feat = ex.split('__')
+                if excludes[domain] is None:
+                    excludes[domain] = []
+                excludes[domain].append(feat)
+
+    # add domains or features according to include argument
+    includes = {}
+    if include is not None:
+        for incl in include:
+            if '__' not in incl:
+                domain = incl
+                feat = None
+                includes[domain] = feat
+            else:
+                domain, feat = incl.split('__')
+                if domain not in includes:
+                    includes[domain] = []
+                includes[domain].append(feat)
+        for domain in domains:
+            if domain not in includes:
+                _ = domain_func_getters.pop(domain)
+
+    # return all the functions wrt include and exclude arguments
+    feature_functions = {}
+    for domain, func_getter in domain_func_getters.items():
+        feature_functions.update({
+            domain: [
+                _FunctionTransformer(f)
+                for f in func_getter(
+                    include=includes[domain] if domain in includes else None,
+                    exclude=excludes[domain] if domain in excludes else None,
+                )
+            ],
+        })
     return feature_functions
 
 
 def _get_extraction_routines(domain=None):
     """Get feature extraction routines.
-    
+
     Parameters
     ----------
     domain: str | None
         The name of the domain. None corresponds to selecting all domains.
-        
+
     Returns
     -------
     dict
@@ -227,22 +282,28 @@ def _get_extraction_routines(domain=None):
         extraction_routines = {domain: extraction_routines[domain]}
     return extraction_routines
 
-        
-def _get_feature_functions_and_extraction_routines(domain=None):
+
+def _get_feature_functions_and_extraction_routines(include=None, exclude=None):
     """Get feature functions and extraction routines of all or a single domain.
-    
+
     Parameters
     ----------
-    domain: str
-        The name of the domain.
-    
+    include: None | str
+        The name of domains and / or features to include.
+    exclude: None | str
+        The name of domains and / or features to exclude.
+
     Returns
     -------
-    tuple(dict(str: func), dics(str, func))
+    tuple(dict(str: func), dict(str, func))
         Feature functions and extraction routines ordered by domain.
     """
-    return (_get_feature_functions(domain=domain),
-            _get_extraction_routines(domain=domain))
+    assert not (include is not None and exclude is not None)
+    feature_funcs = _get_feature_functions(include=include, exclude=exclude)
+    extraction_routines = {k: v
+                           for domain in feature_funcs.keys()
+                           for k, v in _get_extraction_routines(domain).items()}
+    return feature_funcs, extraction_routines
 
 
 '''In case we decide to create a FeatureDataset
