@@ -77,7 +77,7 @@ def extract_wavelet_features(concat_ds, frequency_bands, fu, windowing_fn):
     """
     log.debug('Extracting ...')
     w = 'morl'
-    central_band = False
+    central_band = True
     step_width = 1
     cwt_df = []
     for ds_i, ds in enumerate(tqdm(concat_ds.datasets)):
